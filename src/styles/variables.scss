@@ -1,4 +1,7 @@
-/* 毛孩子健康本 — 全局设计令牌 */
+/* 毛孩子健康本 — 全局设计令牌（编译期 SCSS，运行时主题见 themes.scss） */
+
+$motion-fast: 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
+$motion-spring: 0.48s cubic-bezier(0.34, 1.4, 0.64, 1);
 
 $primary: #ff7d3f;
 $primary-light: #fff3ed;

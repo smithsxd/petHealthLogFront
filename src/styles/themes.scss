@@ -1,0 +1,120 @@
+/* 亮/暗主题 — 可爱软萌配色，通过 .theme-root 包裹页面生效 */
+
+.theme-root {
+  min-height: 100vh;
+  background: var(--bg-page-gradient);
+  color: var(--text-1);
+  transition: background 0.4s ease, color 0.3s ease;
+}
+
+.theme-root.theme-light {
+  --primary: #ff7d3f;
+  --primary-dark: #e86a2c;
+  --primary-light: #fff3ed;
+  --primary-glow: rgba(255, 125, 63, 0.22);
+
+  --success: #19be6b;
+  --success-light: #e8f9f0;
+  --warning: #f59e0b;
+  --warning-light: #fff8e6;
+  --danger: #fa3534;
+  --danger-light: #fef0f0;
+
+  --bg-page: #f5f7fa;
+  --bg-page-gradient: linear-gradient(180deg, #fff8f3 0%, #f5f7fa 38%, #eef1f6 100%);
+  --bg-card: #ffffff;
+  --bg-card-gradient: linear-gradient(145deg, #ffffff 0%, #fffaf7 100%);
+  --bg-input: #f8f9fc;
+  --bg-nav: rgba(255, 255, 255, 0.92);
+  --bg-tabbar: rgba(255, 255, 255, 0.96);
+  --bg-pet-bar: #ffffff;
+
+  --text-1: #303133;
+  --text-2: #606266;
+  --text-3: #909399;
+  --text-4: #c0c4cc;
+
+  --border: #e4e7ed;
+  --divider: #ebeef5;
+
+  --shadow-card: 0 8rpx 32rpx rgba(255, 125, 63, 0.07), 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 12rpx 40rpx rgba(255, 125, 63, 0.12), 0 6rpx 24rpx rgba(0, 0, 0, 0.06);
+  --shadow-soft: 0 4rpx 24rpx rgba(255, 154, 86, 0.15);
+
+  --badge-info: #e8f4fd;
+  --badge-purple: #f0f0ff;
+  --badge-evening-bg: #f0f0ff;
+  --badge-evening-text: #6c5ce7;
+  --ring-track: #ebeef5;
+  --overlay: rgba(0, 0, 0, 0.45);
+  --on-primary: #ffffff;
+  --hero-shadow: 0 12rpx 40rpx rgba(255, 125, 63, 0.3);
+}
+
+.theme-root.theme-dark {
+  --primary: #ff9a66;
+  --primary-dark: #ff7d3f;
+  --primary-light: rgba(255, 154, 102, 0.16);
+  --primary-glow: rgba(255, 154, 102, 0.35);
+
+  --success: #4ade80;
+  --success-light: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --warning-light: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-light: rgba(248, 113, 113, 0.12);
+
+  --bg-page: #1a1625;
+  --bg-page-gradient: linear-gradient(180deg, #2a2238 0%, #1a1625 45%, #12101a 100%);
+  --bg-card: #252033;
+  --bg-card-gradient: linear-gradient(145deg, #2d2640 0%, #252033 100%);
+  --bg-input: #2f2840;
+  --bg-nav: rgba(26, 22, 37, 0.94);
+  --bg-tabbar: rgba(22, 18, 32, 0.96);
+  --bg-pet-bar: #252033;
+
+  --text-1: #f5f0fa;
+  --text-2: #c9c0d6;
+  --text-3: #9a8fb0;
+  --text-4: #6b6080;
+
+  --border: #3d3550;
+  --divider: #332d42;
+
+  --shadow-card: 0 8rpx 32rpx rgba(0, 0, 0, 0.35), 0 0 0 1rpx rgba(255, 154, 102, 0.06);
+  --shadow-card-hover: 0 12rpx 40rpx rgba(0, 0, 0, 0.45), 0 0 0 1rpx rgba(255, 154, 102, 0.12);
+  --shadow-soft: 0 4rpx 28rpx rgba(255, 154, 102, 0.2);
+
+  --badge-info: rgba(120, 180, 255, 0.15);
+  --badge-purple: rgba(180, 160, 255, 0.15);
+  --badge-evening-bg: rgba(180, 160, 255, 0.18);
+  --badge-evening-text: #b8a9ff;
+  --ring-track: #3d3550;
+  --overlay: rgba(0, 0, 0, 0.65);
+  --on-primary: #ffffff;
+  --hero-shadow: 0 12rpx 40rpx rgba(255, 154, 102, 0.35);
+}
+
+/* uView 弹层 / 选择器暗色适配（extra 插槽在 theme-root 内） */
+.theme-root.theme-dark {
+  :deep(.u-popup__content),
+  :deep(.u-picker),
+  :deep(.u-toolbar) {
+    background-color: var(--bg-card) !important;
+  }
+
+  :deep(.u-toolbar__title),
+  :deep(.u-toolbar__wrapper__cancel),
+  :deep(.u-toolbar__wrapper__confirm),
+  :deep(.u-picker-column__item) {
+    color: var(--text-1) !important;
+  }
+
+  :deep(.u-picker-column__item--disabled) {
+    color: var(--text-4) !important;
+  }
+
+  :deep(.u-line) {
+    border-color: var(--divider) !important;
+  }
+}

@@ -1,12 +1,12 @@
 <template>
-  <view class="tab-page-layout">
-    <!-- 原生 view 包裹，避免小程序组件样式隔离导致 fixed 失效 -->
+  <view class="tab-page-layout theme-root" :class="themeClass">
     <view class="tab-page-layout__header">
       <AppNav
         :title="title"
         :show-back="showBack"
         :back-to-index="backToIndex"
         :action-text="actionText"
+        :show-theme-toggle="showThemeToggle"
         @action="$emit('nav-action')"
       />
     </view>
@@ -29,13 +29,15 @@
 import { ref } from 'vue'
 import AppNav from '@/components/AppNav/index.vue'
 import AppTabBar from '@/components/AppTabBar/index.vue'
+import { themeClass } from '@/store/theme.js'
 
 defineProps({
   title: { type: String, default: '' },
   showBack: { type: Boolean, default: false },
   backToIndex: { type: Boolean, default: false },
   actionText: { type: String, default: '' },
-  tabCurrent: { type: String, required: true }
+  tabCurrent: { type: String, required: true },
+  showThemeToggle: { type: Boolean, default: true }
 })
 
 defineEmits(['nav-action'])
@@ -68,8 +70,6 @@ function calcBodyStyle() {
 
 <style lang="scss" scoped>
 .tab-page-layout {
-  min-height: 100vh;
-  background: $bg-page;
   box-sizing: border-box;
 }
 
@@ -79,7 +79,6 @@ function calcBodyStyle() {
   left: 0;
   right: 0;
   z-index: 999;
-  background: rgba(255, 255, 255, 0.98);
 }
 
 .tab-page-layout__body {

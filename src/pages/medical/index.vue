@@ -194,7 +194,7 @@ async function submitForm() {
 }
 
 onShow(async () => {
-  await loadPets()
+  await loadPets({ withRelated: false })
   await loadCases()
 })
 </script>
@@ -212,8 +212,8 @@ onShow(async () => {
 
 .plan-badge {
   font-size: 22rpx;
-  color: $primary;
-  background: $primary-light;
+  color: var(--primary);
+  background: var(--primary-light);
   padding: 4rpx 20rpx;
   border-radius: $radius-pill;
   font-weight: 600;
@@ -226,7 +226,7 @@ onShow(async () => {
   top: 28rpx;
   right: 28rpx;
   font-size: 26rpx;
-  color: $danger;
+  color: var(--danger);
 }
 
 .add-btn {
@@ -234,15 +234,15 @@ onShow(async () => {
   align-items: center;
   justify-content: center;
   padding: 20rpx;
-  border: 2rpx dashed $primary;
+  border: 2rpx dashed var(--primary);
   border-radius: $radius-btn;
-  color: $primary;
+  color: var(--primary);
   font-size: 28rpx;
   font-weight: 600;
 
   &:active {
-    background: $primary;
-    color: #fff;
+    background: var(--primary);
+    color: var(--on-primary);
     border-style: solid;
   }
 }
@@ -258,21 +258,21 @@ onShow(async () => {
 
 .case-date {
   font-size: 22rpx;
-  color: $text-4;
+  color: var(--text-4);
   display: block;
 }
 
 .case-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: $text-1;
+  color: var(--text-1);
   display: block;
   margin-top: 4rpx;
 }
 
 .case-divider {
   height: 1px;
-  background: $divider;
+  background: var(--divider);
   margin: 16rpx 0;
 }
 
@@ -282,6 +282,6 @@ onShow(async () => {
 
 .case-med-text {
   font-size: 26rpx;
-  color: $text-2;
+  color: var(--text-2);
 }
 </style>

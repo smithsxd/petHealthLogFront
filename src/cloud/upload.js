@@ -13,9 +13,12 @@ export async function uploadPetAvatar(options = {}) {
       sizeType: ['compressed']
     })
 
-    const localFile = chooseRes.tempFiles[0]
+    const localFile = chooseRes?.tempFiles?.[0]
+    if (!localFile?.tempFilePath) {
+      return ''
+    }
     const localPath = localFile.tempFilePath
-    const localSize = localFile.size
+    const localSize = localFile.size || 0
 
     if (localSize > MAX_AVATAR_SIZE) {
       uni.showToast({
@@ -54,7 +57,8 @@ export async function uploadPetAvatar(options = {}) {
     return fileId
   } catch (err) {
     uni.hideLoading()
-    const cancelled = /cancel/i.test(String(err?.errMsg || err?.message || ''))
+    const errMsg = err?.errMsg || err?.message || (typeof err === 'string' ? err : '')
+    const cancelled = /cancel/i.test(String(errMsg))
     if (!cancelled) {
       console.error('上传失败或用户取消了操作：', err)
       uni.showToast({ title: '上传折了，再试一次吧', icon: 'none' })

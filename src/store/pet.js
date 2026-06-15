@@ -1,6 +1,7 @@
 import { reactive, computed } from 'vue'
 import { COLLECTIONS, getDb } from '@/cloud/db.js'
 import { cloudGet, sortBy } from '@/cloud/query.js'
+import { cloudErrorToast } from '@/cloud/errors.js'
 import {
   petEmoji,
   typeLabel,
@@ -67,7 +68,7 @@ export async function loadPets(options = {}) {
     try {
       const db = await getDb()
       const pets = await cloudGet(
-        db.collection(COLLECTIONS.PETS).get(),
+        () => db.collection(COLLECTIONS.PETS).limit(100).get(),
         { label: 'pets', sort: sortBy('create_time', 'desc') }
       )
       petStore.pets = pets
@@ -82,10 +83,7 @@ export async function loadPets(options = {}) {
       return petStore.pets
     } catch (err) {
       console.error('[cloud] loadPets failed', err)
-      const msg = String(err?.message || err)
-      if (!msg.includes('初始化失败') && !msg.includes('不可用')) {
-        uni.showToast({ title: '加载宠物失败', icon: 'none' })
-      }
+      uni.showToast({ title: cloudErrorToast(err, '加载宠物失败'), icon: 'none', duration: 3000 })
       return []
     } finally {
       petStore.loadingPets = false
@@ -117,7 +115,7 @@ export async function loadWeights() {
   try {
     const db = await getDb()
     petStore.weights = await cloudGet(
-      db.collection(COLLECTIONS.WEIGHTS).where({ pet_id: petStore.currentPetId }).get(),
+      () => db.collection(COLLECTIONS.WEIGHTS).where({ pet_id: petStore.currentPetId }).limit(500).get(),
       { label: 'pet_weights', sort: sortBy('record_date', 'asc') }
     )
     return petStore.weights
@@ -135,7 +133,7 @@ export async function loadReminders() {
   try {
     const db = await getDb()
     petStore.reminders = await cloudGet(
-      db.collection(COLLECTIONS.REMINDERS).where({ pet_id: petStore.currentPetId }).get(),
+      () => db.collection(COLLECTIONS.REMINDERS).where({ pet_id: petStore.currentPetId }).limit(100).get(),
       { label: 'pet_reminders', sort: sortBy('next_date', 'asc') }
     )
     return petStore.reminders
@@ -153,7 +151,7 @@ export async function loadMedications() {
   try {
     const db = await getDb()
     petStore.medications = await cloudGet(
-      db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).get(),
+      () => db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).limit(100).get(),
       { label: 'pet_medications', sort: sortBy('create_time', 'desc') }
     )
     return petStore.medications
@@ -335,7 +333,7 @@ export async function loadAllMedicationsForPet() {
   try {
     const db = await getDb()
     return await cloudGet(
-      db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).get(),
+      () => db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).limit(100).get(),
       { label: 'pet_medications', sort: sortBy('create_time', 'desc') }
     )
   } catch (err) {

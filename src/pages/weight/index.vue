@@ -101,6 +101,7 @@ import TabPageLayout from '@/components/TabPageLayout/index.vue'
 import PetBar from '@/components/PetBar/index.vue'
 import EmptyState from '@/components/EmptyState/index.vue'
 import { buildWeightChartOption, filterChartDataByRange } from '@/utils/chart.js'
+import { isDark } from '@/store/theme.js'
 import {
   petStore,
   petBarPets,
@@ -227,7 +228,7 @@ function getChartOption() {
   if (!chartData.value.length) return null
   const data = filterChartDataByRange(chartData.value, range.value)
   if (!data.length) return null
-  return buildWeightChartOption(data, echarts)
+  return buildWeightChartOption(data, echarts, { dark: isDark.value })
 }
 
 function scheduleChartUpdate() {
@@ -324,6 +325,10 @@ watch(range, () => {
   scheduleChartUpdate()
 })
 
+watch(isDark, () => {
+  scheduleChartUpdate()
+})
+
 watch(chartData, () => {
   scheduleChartUpdate()
 }, { deep: true })
@@ -354,26 +359,26 @@ onUnmounted(() => {
 
 .sum-item {
   flex: 1;
-  background: $bg-card;
+  background: var(--bg-card-gradient);
   border-radius: $radius-card;
   padding: 28rpx;
-  box-shadow: $shadow-card;
+  box-shadow: var(--shadow-card);
 }
 
 .sum-label {
   font-size: 22rpx;
-  color: $text-3;
+  color: var(--text-3);
   display: block;
 }
 
 .sum-value {
   font-size: 48rpx;
   font-weight: 700;
-  color: $text-1;
+  color: var(--text-1);
   margin-top: 4rpx;
   display: block;
 
-  &.pri { color: $primary; }
+  &.pri { color: var(--primary); }
 }
 
 .sum-unit {
@@ -386,9 +391,9 @@ onUnmounted(() => {
   margin-top: 4rpx;
   display: block;
 
-  &.up { color: $danger; }
-  &.down { color: $success; }
-  &.muted { color: $text-3; }
+  &.up { color: var(--danger); }
+  &.down { color: var(--success); }
+  &.muted { color: var(--text-3); }
 }
 
 .chart-wrap {
@@ -398,11 +403,11 @@ onUnmounted(() => {
 
 .chart-tabs {
   display: flex;
-  background: $bg-card;
+  background: var(--bg-card-gradient);
   border-radius: $radius-btn;
   padding: 6rpx;
   margin-bottom: 20rpx;
-  box-shadow: $shadow-card;
+  box-shadow: var(--shadow-card);
 }
 
 .chart-tab {
@@ -410,12 +415,12 @@ onUnmounted(() => {
   text-align: center;
   padding: 14rpx 0;
   font-size: 26rpx;
-  color: $text-2;
+  color: var(--text-2);
   border-radius: 12rpx;
 
   &.active {
-    background: $primary-light;
-    color: $primary;
+    background: var(--primary-light);
+    color: var(--primary);
     font-weight: 600;
   }
 }
@@ -423,9 +428,9 @@ onUnmounted(() => {
 .chart-box {
   width: 100%;
   height: 560rpx;
-  background: $bg-card;
+  background: var(--bg-card-gradient);
   border-radius: $radius-card;
-  box-shadow: $shadow-card;
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -437,7 +442,7 @@ onUnmounted(() => {
 
 .hist-title {
   font-size: 24rpx;
-  color: $text-3;
+  color: var(--text-3);
   margin-bottom: 16rpx;
   display: block;
 }
@@ -453,9 +458,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 24rpx 28rpx;
-  background: $bg-card;
+  background: var(--bg-card-gradient);
   border-radius: $radius-card;
-  box-shadow: $shadow-card;
+  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 
@@ -468,13 +473,13 @@ onUnmounted(() => {
   display: block;
   font-size: 34rpx;
   font-weight: 600;
-  color: $text-1;
+  color: var(--text-1);
 }
 
 .hist-date {
   display: block;
   font-size: 22rpx;
-  color: $text-3;
+  color: var(--text-3);
   margin-top: 4rpx;
 }
 
@@ -487,8 +492,8 @@ onUnmounted(() => {
   margin-left: 16rpx;
   white-space: nowrap;
 
-  &.up { color: $danger; background: $danger-light; }
-  &.down { color: $success; background: $success-light; }
-  &.flat { color: $text-3; background: $bg-page; }
+  &.up { color: var(--danger); background: var(--danger-light); }
+  &.down { color: var(--success); background: var(--success-light); }
+  &.flat { color: var(--text-3); background: var(--bg-page); }
 }
 </style>

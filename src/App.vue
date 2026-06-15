@@ -1,9 +1,11 @@
 <script>
 import { CLOUD_ENV_ID, setCloudInited } from '@/cloud/config.js'
 import { loadPets } from '@/store/pet.js'
+import { initTheme } from '@/store/theme.js'
 
 export default {
   async onLaunch() {
+    initTheme()
     // #ifdef MP-WEIXIN
     try {
       if (!wx.cloud) {
@@ -16,8 +18,10 @@ export default {
         traceUser: true
       })
       setCloudInited()
-      console.log('[cloud] 初始化完成')
-      loadPets().catch((err) => console.error('[cloud] 首次加载宠物失败', err))
+      console.log('[cloud] 初始化完成，环境:', CLOUD_ENV_ID)
+      loadPets().catch((err) => {
+        console.error('[cloud] 首次加载宠物失败', err)
+      })
     } catch (err) {
       console.error('[cloud] 初始化失败', err)
       setCloudInited(err)
@@ -30,12 +34,13 @@ export default {
 </script>
 
 <style lang="scss">
+@import '@/styles/themes.scss';
 @import '@/styles/common.scss';
 @import 'uview-plus/index.scss';
 
 page {
-  background-color: $bg-page;
+  background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: $text-1;
+  color: var(--text-1, #303133);
 }
 </style>

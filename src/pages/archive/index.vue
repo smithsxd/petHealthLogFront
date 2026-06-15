@@ -275,15 +275,15 @@ onShow(() => {
   height: 200rpx;
   border-radius: 50%;
   padding: 8rpx;
-  background: linear-gradient(135deg, #ff9a56, $primary);
-  box-shadow: 0 8rpx 32rpx rgba(255, 125, 63, 0.18);
+  background: linear-gradient(135deg, #ff9a56, var(--primary));
+  box-shadow: var(--hero-shadow);
 }
 
 .avatar-inner {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: $bg-page;
+  background: var(--bg-page);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -306,15 +306,15 @@ onShow(() => {
 .avatar-hint {
   margin-top: 20rpx;
   font-size: 24rpx;
-  color: $primary;
-  background: $primary-light;
+  color: var(--primary);
+  background: var(--primary-light);
   padding: 6rpx 24rpx;
   border-radius: $radius-pill;
 }
 
 .form-counter {
   font-size: 20rpx;
-  color: $text-4;
+  color: var(--text-4);
   text-align: right;
   margin-top: 4rpx;
   display: block;
@@ -333,16 +333,16 @@ onShow(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx solid $border;
+  border: 2rpx solid var(--border);
   border-radius: $radius-input;
   font-size: 28rpx;
-  background: $bg-card;
+  background: var(--bg-card);
   transition: all 0.2s;
 
   &.selected {
-    border-color: $primary;
-    background: $primary-light;
-    color: $primary;
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
     font-weight: 600;
   }
 }
@@ -351,11 +351,11 @@ onShow(() => {
   margin-top: 20rpx;
   text-align: center;
   font-size: 28rpx;
-  color: $text-3;
+  color: var(--text-3);
   padding: 16rpx;
 
   &:active {
-    color: $text-2;
+    color: var(--text-2);
   }
 }
 
@@ -366,21 +366,21 @@ onShow(() => {
 .progress-bar {
   width: 100%;
   height: 8rpx;
-  background: $divider;
+  background: var(--divider);
   border-radius: 4rpx;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, $primary, #ff9a56);
+  background: linear-gradient(90deg, var(--primary), #ff9a56);
   border-radius: 4rpx;
   transition: width 0.3s;
 }
 
 .progress-text {
   font-size: 22rpx;
-  color: $text-3;
+  color: var(--text-3);
   text-align: center;
   margin-top: 8rpx;
   display: block;
@@ -398,8 +398,8 @@ onShow(() => {
   box-sizing: border-box;
 
   &--editing {
-    background: $primary-light;
-    border: 2rpx solid $primary;
+    background: var(--primary-light);
+    border: 2rpx solid var(--primary);
   }
 }
 
@@ -413,7 +413,7 @@ onShow(() => {
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  background: $bg-page;
+  background: var(--bg-page);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,13 +436,13 @@ onShow(() => {
   display: block;
   font-size: 32rpx;
   font-weight: 600;
-  color: $text-1;
+  color: var(--text-1);
 }
 
 .pet-list-meta {
   display: block;
   font-size: 24rpx;
-  color: $text-3;
+  color: var(--text-3);
   margin-top: 4rpx;
 }
 </style>

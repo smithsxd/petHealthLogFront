@@ -3,34 +3,45 @@
     <view
       v-for="item in tabs"
       :key="item.path"
-      class="app-tabbar__item"
+      class="app-tabbar__item press-soft"
       :class="{ active: current === item.key }"
       @click="switchTab(item.path)"
     >
-      <text class="app-tabbar__icon">{{ item.icon }}</text>
+      <view class="app-tabbar__icon-wrap" :class="{ active: current === item.key }">
+        <u-icon
+          :name="current === item.key ? item.iconActive : item.icon"
+          :color="current === item.key ? activeColor : inactiveColor"
+          size="22"
+        />
+      </view>
       <text class="app-tabbar__text">{{ item.text }}</text>
     </view>
   </view>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { isDark } from '@/store/theme.js'
+
 defineProps({
   current: {
     type: String,
     required: true
   },
-  /** 嵌入 TabPageLayout 时使用，取消 fixed 定位 */
   embedded: {
     type: Boolean,
     default: false
   }
 })
 
+const inactiveColor = computed(() => (isDark.value ? '#9a8fb0' : '#909399'))
+const activeColor = computed(() => (isDark.value ? '#ff9a66' : '#ff7d3f'))
+
 const tabs = [
-  { key: 'home', path: '/pages/home/index', text: '看板', icon: '🏠' },
-  { key: 'weight', path: '/pages/weight/index', text: '体重', icon: '📊' },
-  { key: 'medical', path: '/pages/medical/index', text: '医嘱', icon: '💊' },
-  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: '📝' }
+  { key: 'home', path: '/pages/home/index', text: '看板', icon: 'home', iconActive: 'home-fill' },
+  { key: 'weight', path: '/pages/weight/index', text: '体重', icon: 'grid', iconActive: 'grid-fill' },
+  { key: 'medical', path: '/pages/medical/index', text: '医嘱', icon: 'file-text', iconActive: 'file-text-fill' },
+  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' }
 ]
 
 function switchTab(path) {
@@ -44,11 +55,12 @@ function switchTab(path) {
 <style lang="scss" scoped>
 .app-tabbar {
   display: flex;
-  background: rgba(255, 255, 255, 0.98);
-  border-top: 1px solid $divider;
+  background: var(--bg-tabbar);
+  border-top: 1px solid var(--divider);
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -2rpx 16rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.06);
+  transition: background 0.35s ease;
 
   &:not(.app-tabbar--embedded) {
     position: fixed;
@@ -66,26 +78,39 @@ function switchTab(path) {
   align-items: center;
   justify-content: center;
   height: 100rpx;
-  color: $text-3;
+  color: var(--text-3);
   font-size: 20rpx;
   gap: 4rpx;
+  position: relative;
 
   &.active {
-    color: $primary;
-  }
+    color: var(--primary);
 
-  &:active {
-    opacity: 0.7;
+    .app-tabbar__text {
+      font-weight: 600;
+    }
   }
 }
 
-.app-tabbar__icon {
-  font-size: 40rpx;
-  line-height: 1;
+.app-tabbar__icon-wrap {
+  width: 72rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 26rpx;
+  transition: background 0.28s ease, transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  &.active {
+    background: var(--primary-light);
+    transform: scale(1.05);
+    animation: tab-pop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
 }
 
 .app-tabbar__text {
   font-size: 20rpx;
   line-height: 1.2;
+  transition: color 0.25s ease;
 }
 </style>

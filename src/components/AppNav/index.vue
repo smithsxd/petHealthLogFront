@@ -2,13 +2,15 @@
   <view class="app-nav" :style="{ paddingTop: statusBarHeight + 'px' }">
     <view class="app-nav__inner">
       <view class="app-nav__left">
-        <view v-if="showBack" class="app-nav__back" @click="onBack">
+        <view v-if="showBack" class="app-nav__back press-soft" @click="onBack">
           <text class="app-nav__back-icon">‹</text>
         </view>
+        <ThemeToggle v-else-if="showThemeToggle" />
       </view>
       <text class="app-nav__title">{{ title }}</text>
       <view class="app-nav__right">
-        <text v-if="actionText" class="app-nav__action" @click="$emit('action')">{{ actionText }}</text>
+        <ThemeToggle v-if="showThemeToggle && showBack" class="app-nav__theme" />
+        <text v-if="actionText" class="app-nav__action press-soft" @click="$emit('action')">{{ actionText }}</text>
       </view>
     </view>
   </view>
@@ -16,12 +18,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import ThemeToggle from '@/components/ThemeToggle/index.vue'
 
 const props = defineProps({
   title: { type: String, default: '' },
   showBack: { type: Boolean, default: false },
   backToIndex: { type: Boolean, default: false },
-  actionText: { type: String, default: '' }
+  actionText: { type: String, default: '' },
+  showThemeToggle: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['action', 'back'])
@@ -59,8 +63,10 @@ function onBack() {
 .app-nav {
   flex-shrink: 0;
   z-index: 200;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid $divider;
+  background: var(--bg-nav);
+  border-bottom: 1px solid var(--divider);
+  backdrop-filter: blur(12px);
+  transition: background 0.35s ease, border-color 0.35s ease;
 }
 
 .app-nav__inner {
@@ -72,13 +78,23 @@ function onBack() {
 
 .app-nav__left,
 .app-nav__right {
-  width: 120rpx;
+  width: 140rpx;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.app-nav__left {
+  justify-content: flex-start;
 }
 
 .app-nav__right {
-  display: flex;
   justify-content: flex-end;
+  gap: 12rpx;
+}
+
+.app-nav__theme {
+  margin-right: 4rpx;
 }
 
 .app-nav__back {
@@ -90,13 +106,13 @@ function onBack() {
   border-radius: 50%;
 
   &:active {
-    background: $divider;
+    background: var(--divider);
   }
 }
 
 .app-nav__back-icon {
   font-size: 48rpx;
-  color: $text-1;
+  color: var(--text-1);
   line-height: 1;
   margin-top: -4rpx;
 }
@@ -106,18 +122,18 @@ function onBack() {
   text-align: center;
   font-size: 34rpx;
   font-weight: 600;
-  color: $text-1;
+  color: var(--text-1);
 }
 
 .app-nav__action {
   font-size: 26rpx;
-  color: $primary;
+  color: var(--primary);
   padding: 8rpx 16rpx;
   border-radius: $radius-btn;
   white-space: nowrap;
 
   &:active {
-    background: $primary-light;
+    background: var(--primary-light);
   }
 }
 </style>

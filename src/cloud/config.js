@@ -22,9 +22,11 @@ const _cloudPromise = new Promise((resolve) => {
   _resolveCloud = resolve
 })
 
-// 兜底：10 秒后强制放行，防止永久卡死
+// 兜底：超时后标记失败，避免未 init 就发起数据库请求
 setTimeout(() => {
   if (_resolveCloud) {
+    console.error('[cloud] 初始化等待超时（10s），请检查云开发与 AppID')
+    _cloudRejected = true
     _resolveCloud()
     _resolveCloud = null
   }
