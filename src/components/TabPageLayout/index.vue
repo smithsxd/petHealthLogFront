@@ -1,19 +1,24 @@
 <template>
   <view class="tab-page-layout">
-    <AppNav
-      :title="title"
-      :show-back="showBack"
-      :back-to-index="backToIndex"
-      :action-text="actionText"
-      @action="$emit('nav-action')"
-    />
+    <!-- 原生 view 包裹，避免小程序组件样式隔离导致 fixed 失效 -->
+    <view class="tab-page-layout__header">
+      <AppNav
+        :title="title"
+        :show-back="showBack"
+        :back-to-index="backToIndex"
+        :action-text="actionText"
+        @action="$emit('nav-action')"
+      />
+    </view>
 
-    <view class="tab-page-layout__body">
+    <view class="tab-page-layout__body" :style="bodyStyle">
       <slot />
       <view class="tab-page-layout__spacer" />
     </view>
 
-    <AppTabBar :current="tabCurrent" />
+    <view class="tab-page-layout__footer">
+      <AppTabBar :current="tabCurrent" embedded />
+    </view>
 
     <slot name="overlay" />
     <slot name="extra" />
@@ -21,6 +26,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import AppNav from '@/components/AppNav/index.vue'
 import AppTabBar from '@/components/AppTabBar/index.vue'
 
@@ -33,18 +39,62 @@ defineProps({
 })
 
 defineEmits(['nav-action'])
+
+const bodyStyle = ref(calcBodyStyle())
+
+function calcBodyStyle() {
+  try {
+    const sys = uni.getSystemInfoSync()
+    const rate = sys.windowWidth / 750
+    const navH = Math.round(88 * rate) + (sys.statusBarHeight || 0)
+    const tabH = Math.round(100 * rate)
+    const safeBottom = sys.safeAreaInsets?.bottom ?? 0
+    return {
+      paddingTop: `${navH}px`,
+      paddingBottom: `${tabH + safeBottom}px`,
+      minHeight: `${sys.windowHeight}px`,
+      boxSizing: 'border-box'
+    }
+  } catch (_) {
+    return {
+      paddingTop: '88px',
+      paddingBottom: '100px',
+      minHeight: '100vh',
+      boxSizing: 'border-box'
+    }
+  }
+}
 </script>
 
 <style lang="scss" scoped>
-/* 页面自然滚动，避免 scroll-view 内 canvas 错位/timeout */
 .tab-page-layout {
   min-height: 100vh;
   background: $bg-page;
   box-sizing: border-box;
 }
 
+.tab-page-layout__header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.tab-page-layout__body {
+  width: 100%;
+}
+
+.tab-page-layout__footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
 .tab-page-layout__spacer {
-  height: calc(100rpx + constant(safe-area-inset-bottom) + 16rpx);
-  height: calc(100rpx + env(safe-area-inset-bottom) + 16rpx);
+  height: 32rpx;
 }
 </style>

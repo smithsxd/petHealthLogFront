@@ -65,6 +65,22 @@ export function reminderCycleDays(type) {
 }
 
 export function buildCountdown(reminder) {
+  if (reminder.status === 'completed') {
+    return {
+      _id: reminder._id,
+      label: reminderTypeLabel(reminder.type),
+      drug: reminder.item_name,
+      lastDate: formatShortDate(reminder.last_date),
+      expectedDate: formatShortDate(reminder.next_date),
+      daysLeft: 0,
+      absDays: 0,
+      isOverdue: false,
+      state: 'done',
+      stateLabel: '已完成',
+      progress: 100,
+      raw: reminder
+    }
+  }
   const daysLeft = daysUntil(reminder.next_date)
   const absDays = Math.abs(daysLeft)
   const isOverdue = daysLeft < 0
@@ -76,6 +92,7 @@ export function buildCountdown(reminder) {
     label: reminderTypeLabel(reminder.type),
     drug: reminder.item_name,
     lastDate: formatShortDate(reminder.last_date),
+    expectedDate: formatShortDate(reminder.next_date),
     daysLeft,
     absDays,
     isOverdue,

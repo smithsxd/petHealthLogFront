@@ -123,7 +123,7 @@ import * as echarts from 'echarts'
 // #endif
 
 // #ifndef H5
-import { getMpEcharts } from '@/utils/echarts.mp.js'
+import { getMpEcharts } from './echarts.mp.js'
 const echarts = getMpEcharts()
 // #endif
 

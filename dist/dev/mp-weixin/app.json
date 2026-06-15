@@ -2,9 +2,16 @@
   "pages": [
     "pages/index/index",
     "pages/home/index",
-    "pages/weight/index",
     "pages/medical/index",
     "pages/archive/index"
+  ],
+  "subPackages": [
+    {
+      "root": "pages/weight",
+      "pages": [
+        "index"
+      ]
+    }
   ],
   "window": {
     "navigationStyle": "custom",

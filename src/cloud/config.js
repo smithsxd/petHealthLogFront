@@ -10,3 +10,44 @@
  * 2. 此处环境 ID 是否与云控制台一致
  */
 export const CLOUD_ENV_ID = 'cloud1-d7g5qwrun8a445889'
+
+// ---- 云初始化就绪锁 ----
+// 微信小程序 App.onLaunch 不会被框架 await，页面可能在 init 完成前就开始渲染。
+// 这里用 Promise 让所有数据库操作排队，等 init 完成后再放行。
+
+let _resolveCloud = null
+let _cloudRejected = false
+
+const _cloudPromise = new Promise((resolve) => {
+  _resolveCloud = resolve
+})
+
+// 兜底：10 秒后强制放行，防止永久卡死
+setTimeout(() => {
+  if (_resolveCloud) {
+    _resolveCloud()
+    _resolveCloud = null
+  }
+}, 10000)
+
+export function waitForCloud() {
+  return _cloudPromise
+}
+
+export function isCloudInited() {
+  return _resolveCloud === null
+}
+
+export function setCloudInited(error) {
+  if (_resolveCloud) {
+    if (error) {
+      _cloudRejected = true
+    }
+    _resolveCloud()
+    _resolveCloud = null
+  }
+}
+
+export function isCloudFailed() {
+  return _cloudRejected
+}

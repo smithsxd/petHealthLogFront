@@ -3,7 +3,7 @@
     "autoscan": true,
     "custom": {
       "^u-(.*)": "uview-plus/components/u-$1/u-$1.vue",
-      "^l-echart$": "@/uni_modules/lime-echart/components/l-echart/l-echart.vue"
+      "^l-echart$": "@/pages/weight/lime-echart/components/l-echart/l-echart.vue"
     }
   },
   "pages": [
@@ -22,13 +22,6 @@
       }
     },
     {
-      "path": "pages/weight/index",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "体重管理"
-      }
-    },
-    {
       "path": "pages/medical/index",
       "style": {
         "navigationStyle": "custom",
@@ -41,6 +34,20 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "宠物档案"
       }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/weight",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "体重管理"
+          }
+        }
+      ]
     }
   ],
   "globalStyle": {

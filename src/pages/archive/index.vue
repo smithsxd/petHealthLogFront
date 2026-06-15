@@ -74,17 +74,27 @@
     </view>
 
     <view class="section" v-if="savedPets.length">
-      <text class="section-sub saved-heading">我的宠物</text>
-      <view class="pet-list-card card" v-for="p in savedPets" :key="p._id">
-        <view class="pet-list-avatar">
-          <image v-if="p.avatar" class="pet-list-avatar-img" :src="p.avatar" mode="aspectFill" />
-          <text v-else>{{ p.emoji }}</text>
-        </view>
-        <view class="pet-list-info">
-          <text class="pet-list-name">{{ p.name }}</text>
-          <text class="pet-list-meta">{{ p.typeLabel }} · {{ p.genderLabel }} · {{ p.birthdayDisplay }}</text>
-        </view>
-      </view>
+      <text class="section-sub saved-heading">我的宠物 · 左滑删除</text>
+      <u-swipe-action>
+        <u-swipe-action-item
+          v-for="(p, i) in savedPets"
+          :key="p._id"
+          :index="i"
+          :options="swipeOptions"
+          @click="deletePet(p)"
+        >
+          <view class="pet-list-card card">
+            <view class="pet-list-avatar">
+              <image v-if="p.avatar" class="pet-list-avatar-img" :src="p.avatar" mode="aspectFill" />
+              <text v-else>{{ p.emoji }}</text>
+            </view>
+            <view class="pet-list-info">
+              <text class="pet-list-name">{{ p.name }}</text>
+              <text class="pet-list-meta">{{ p.typeLabel }} · {{ p.genderLabel }} · {{ p.birthdayDisplay }}</text>
+            </view>
+          </view>
+        </u-swipe-action-item>
+      </u-swipe-action>
     </view>
 
     <template #extra>
@@ -104,7 +114,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabPageLayout from '@/components/TabPageLayout/index.vue'
-import { petStore, loadPets, addPet, mapPetForList } from '@/store/pet.js'
+import { petStore, loadPets, addPet, removePet, mapPetForList } from '@/store/pet.js'
 import { formatDisplayDate } from '@/cloud/helpers.js'
 import { uploadPetAvatar } from '@/cloud/upload.js'
 
@@ -122,6 +132,11 @@ const uploading = ref(false)
 const progress = ref(0)
 const progressText = ref('')
 const submitting = ref(false)
+
+const swipeOptions = [{
+  text: '删除',
+  style: { backgroundColor: '#fa3534', color: '#fff', fontSize: '13px' }
+}]
 
 const savedPets = computed(() =>
   petStore.pets.map((p) => ({
@@ -160,6 +175,25 @@ function onDateConfirm(e) {
   birthdayDisplay.value = `${y}年${m}月${day}日`
   birthday.value = `${y}-${m}-${day}`
   showDatePicker.value = false
+}
+
+async function deletePet(pet) {
+  if (!pet?._id) return
+  uni.showModal({
+    title: '确认删除',
+    content: `确定删除「${pet.name}」的档案吗？相关体重、提醒和医嘱记录也会一并删除。`,
+    confirmColor: '#fa3534',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await removePet(pet._id)
+        uni.showToast({ title: '已删除', icon: 'success' })
+      } catch (err) {
+        console.error(err)
+        uni.showToast({ title: '删除失败', icon: 'none' })
+      }
+    }
+  })
 }
 
 async function submitProfile() {
@@ -318,7 +352,13 @@ onShow(() => {
   display: flex;
   align-items: center;
   gap: 28rpx;
+  box-sizing: border-box;
+}
+
+.section :deep(.u-swipe-action-item) {
   margin-bottom: 20rpx;
+  border-radius: $radius-card;
+  overflow: hidden;
 }
 
 .pet-list-avatar {

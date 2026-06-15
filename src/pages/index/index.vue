@@ -1,6 +1,6 @@
 <template>
   <view class="landing page-shell">
-    <AppNav title="毛孩子健康本" />
+    <AppNav title="宠物健康日志" />
 
     <view class="hero">
         <view class="hero-logo">🐾</view>

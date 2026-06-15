@@ -1,19 +1,27 @@
 <script>
-import { CLOUD_ENV_ID } from '@/cloud/config.js'
+import { CLOUD_ENV_ID, setCloudInited } from '@/cloud/config.js'
 import { loadPets } from '@/store/pet.js'
 
 export default {
-  onLaunch() {
+  async onLaunch() {
     // #ifdef MP-WEIXIN
-    if (wx.cloud) {
+    try {
+      if (!wx.cloud) {
+        console.error('[cloud] wx.cloud 不可用，请确认 manifest 已开启 cloud 且 AppID 为正式号')
+        setCloudInited(new Error('wx.cloud 不可用'))
+        return
+      }
       wx.cloud.init({
         env: CLOUD_ENV_ID,
         traceUser: true
       })
-    } else {
-      console.error('[cloud] wx.cloud 不可用，请确认 manifest 已开启 cloud 且 AppID 为正式号')
+      setCloudInited()
+      console.log('[cloud] 初始化完成')
+      loadPets().catch((err) => console.error('[cloud] 首次加载宠物失败', err))
+    } catch (err) {
+      console.error('[cloud] 初始化失败', err)
+      setCloudInited(err)
     }
-    loadPets()
     // #endif
   },
   onShow() {},

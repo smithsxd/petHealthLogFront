@@ -1,5 +1,6 @@
 import { reactive, computed } from 'vue'
-import { COLLECTIONS, getDb, isCloudReady } from '@/cloud/db.js'
+import { COLLECTIONS, getDb } from '@/cloud/db.js'
+import { cloudGet, sortBy } from '@/cloud/query.js'
 import {
   petEmoji,
   typeLabel,
@@ -55,28 +56,46 @@ export function setCurrentPetId(petId) {
   refreshPetData()
 }
 
-export async function loadPets() {
-  if (!isCloudReady()) return []
-  petStore.loadingPets = true
-  try {
-    const db = getDb()
-    const res = await db.collection(COLLECTIONS.PETS)
-      .orderBy('create_time', 'desc')
-      .get()
-    petStore.pets = res.data || []
-    if (!petStore.currentPetId && petStore.pets.length) {
-      petStore.currentPetId = petStore.pets[0]._id
-    } else if (petStore.currentPetId && !petStore.pets.find((p) => p._id === petStore.currentPetId)) {
-      petStore.currentPetId = petStore.pets[0]?._id || ''
+let loadPetsTask = null
+
+export async function loadPets(options = {}) {
+  const { force = false, withRelated = true } = options
+  if (loadPetsTask && !force) return loadPetsTask
+
+  loadPetsTask = (async () => {
+    petStore.loadingPets = true
+    try {
+      const db = await getDb()
+      const pets = await cloudGet(
+        db.collection(COLLECTIONS.PETS).get(),
+        { label: 'pets', sort: sortBy('create_time', 'desc') }
+      )
+      petStore.pets = pets
+      if (!petStore.currentPetId && petStore.pets.length) {
+        petStore.currentPetId = petStore.pets[0]._id
+      } else if (petStore.currentPetId && !petStore.pets.find((p) => p._id === petStore.currentPetId)) {
+        petStore.currentPetId = petStore.pets[0]?._id || ''
+      }
+      if (withRelated) {
+        await refreshPetData()
+      }
+      return petStore.pets
+    } catch (err) {
+      console.error('[cloud] loadPets failed', err)
+      const msg = String(err?.message || err)
+      if (!msg.includes('初始化失败') && !msg.includes('不可用')) {
+        uni.showToast({ title: '加载宠物失败', icon: 'none' })
+      }
+      return []
+    } finally {
+      petStore.loadingPets = false
     }
-    await refreshPetData()
-    return petStore.pets
-  } catch (err) {
-    console.error('[cloud] loadPets failed', err)
-    uni.showToast({ title: '加载宠物失败', icon: 'none' })
-    return []
+  })()
+
+  try {
+    return await loadPetsTask
   } finally {
-    petStore.loadingPets = false
+    loadPetsTask = null
   }
 }
 
@@ -87,19 +106,20 @@ export async function refreshPetData() {
     petStore.medications = []
     return
   }
-  await Promise.all([loadWeights(), loadReminders(), loadMedications()])
+  await loadWeights()
+  await loadReminders()
+  await loadMedications()
 }
 
 export async function loadWeights() {
-  if (!petStore.currentPetId || !isCloudReady()) return []
+  if (!petStore.currentPetId) return []
   petStore.loadingWeights = true
   try {
-    const db = getDb()
-    const res = await db.collection(COLLECTIONS.WEIGHTS)
-      .where({ pet_id: petStore.currentPetId })
-      .orderBy('record_date', 'asc')
-      .get()
-    petStore.weights = res.data || []
+    const db = await getDb()
+    petStore.weights = await cloudGet(
+      db.collection(COLLECTIONS.WEIGHTS).where({ pet_id: petStore.currentPetId }).get(),
+      { label: 'pet_weights', sort: sortBy('record_date', 'asc') }
+    )
     return petStore.weights
   } catch (err) {
     console.error('[cloud] loadWeights failed', err)
@@ -110,15 +130,14 @@ export async function loadWeights() {
 }
 
 export async function loadReminders() {
-  if (!petStore.currentPetId || !isCloudReady()) return []
+  if (!petStore.currentPetId) return []
   petStore.loadingReminders = true
   try {
-    const db = getDb()
-    const res = await db.collection(COLLECTIONS.REMINDERS)
-      .where({ pet_id: petStore.currentPetId })
-      .orderBy('next_date', 'asc')
-      .get()
-    petStore.reminders = res.data || []
+    const db = await getDb()
+    petStore.reminders = await cloudGet(
+      db.collection(COLLECTIONS.REMINDERS).where({ pet_id: petStore.currentPetId }).get(),
+      { label: 'pet_reminders', sort: sortBy('next_date', 'asc') }
+    )
     return petStore.reminders
   } catch (err) {
     console.error('[cloud] loadReminders failed', err)
@@ -129,15 +148,14 @@ export async function loadReminders() {
 }
 
 export async function loadMedications() {
-  if (!petStore.currentPetId || !isCloudReady()) return []
+  if (!petStore.currentPetId) return []
   petStore.loadingMedications = true
   try {
-    const db = getDb()
-    const res = await db.collection(COLLECTIONS.MEDICATIONS)
-      .where({ pet_id: petStore.currentPetId })
-      .orderBy('create_time', 'desc')
-      .get()
-    petStore.medications = res.data || []
+    const db = await getDb()
+    petStore.medications = await cloudGet(
+      db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).get(),
+      { label: 'pet_medications', sort: sortBy('create_time', 'desc') }
+    )
     return petStore.medications
   } catch (err) {
     console.error('[cloud] loadMedications failed', err)
@@ -166,7 +184,7 @@ export const todayMedItems = computed(() => {
 })
 
 export async function addPet(data) {
-  const db = getDb()
+  const db = await getDb()
   const res = await db.collection(COLLECTIONS.PETS).add({
     data: {
       ...data,
@@ -180,6 +198,21 @@ export async function addPet(data) {
   return res
 }
 
+export async function removePet(petId) {
+  if (!petId) return
+  const db = await getDb()
+  await Promise.all([
+    db.collection(COLLECTIONS.WEIGHTS).where({ pet_id: petId }).remove(),
+    db.collection(COLLECTIONS.REMINDERS).where({ pet_id: petId }).remove(),
+    db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petId }).remove()
+  ])
+  await db.collection(COLLECTIONS.PETS).doc(petId).remove()
+  if (petStore.currentPetId === petId) {
+    petStore.currentPetId = ''
+  }
+  await loadPets()
+}
+
 export async function uploadAvatar(tempFilePath) {
   const cloudPath = `pet_images/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`
   const res = await wx.cloud.uploadFile({ cloudPath, filePath: tempFilePath })
@@ -187,7 +220,7 @@ export async function uploadAvatar(tempFilePath) {
 }
 
 export async function addWeight(weight, recordDate) {
-  const db = getDb()
+  const db = await getDb()
   await db.collection(COLLECTIONS.WEIGHTS).add({
     data: {
       pet_id: petStore.currentPetId,
@@ -200,7 +233,7 @@ export async function addWeight(weight, recordDate) {
 }
 
 export async function removeWeight(weightId) {
-  const db = getDb()
+  const db = await getDb()
   await db.collection(COLLECTIONS.WEIGHTS).doc(weightId).remove()
   await loadWeights()
 }
@@ -211,7 +244,7 @@ export async function renewReminder(reminderId) {
   const today = todayISO()
   const cycle = reminderCycleDays(reminder.type)
   const nextDate = addDaysISO(today, cycle)
-  const db = getDb()
+  const db = await getDb()
   await db.collection(COLLECTIONS.REMINDERS).doc(reminderId).update({
     data: {
       last_date: today,
@@ -222,8 +255,55 @@ export async function renewReminder(reminderId) {
   await loadReminders()
 }
 
+export async function addReminder({ type, itemName, expectedDate }) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.REMINDERS).add({
+    data: {
+      pet_id: petStore.currentPetId,
+      type,
+      item_name: itemName,
+      last_date: '',
+      next_date: expectedDate,
+      status: 'active',
+      is_notified: false,
+      create_time: Date.now()
+    }
+  })
+  await loadReminders()
+}
+
+export async function completeReminder(reminderId) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.REMINDERS).doc(reminderId).update({
+    data: {
+      status: 'completed',
+      last_date: todayISO()
+    }
+  })
+  await loadReminders()
+}
+
+export async function extendReminder(reminderId, extendDays) {
+  const reminder = petStore.reminders.find((r) => r._id === reminderId)
+  if (!reminder) return
+  const newNextDate = addDaysISO(reminder.next_date, extendDays)
+  const db = await getDb()
+  await db.collection(COLLECTIONS.REMINDERS).doc(reminderId).update({
+    data: {
+      next_date: newNextDate
+    }
+  })
+  await loadReminders()
+}
+
+export async function removeReminder(reminderId) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.REMINDERS).doc(reminderId).remove()
+  await loadReminders()
+}
+
 export async function addMedication(payload) {
-  const db = getDb()
+  const db = await getDb()
   await db.collection(COLLECTIONS.MEDICATIONS).add({
     data: {
       pet_id: petStore.currentPetId,
@@ -239,14 +319,13 @@ export async function addMedication(payload) {
 }
 
 export async function loadAllMedicationsForPet() {
-  if (!petStore.currentPetId || !isCloudReady()) return []
+  if (!petStore.currentPetId) return []
   try {
-    const db = getDb()
-    const res = await db.collection(COLLECTIONS.MEDICATIONS)
-      .where({ pet_id: petStore.currentPetId })
-      .orderBy('create_time', 'desc')
-      .get()
-    return res.data || []
+    const db = await getDb()
+    return await cloudGet(
+      db.collection(COLLECTIONS.MEDICATIONS).where({ pet_id: petStore.currentPetId }).get(),
+      { label: 'pet_medications', sort: sortBy('create_time', 'desc') }
+    )
   } catch (err) {
     console.error('[cloud] loadAllMedications failed', err)
     return []

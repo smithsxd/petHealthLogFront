@@ -1,5 +1,5 @@
 <template>
-  <view class="app-tabbar">
+  <view class="app-tabbar" :class="{ 'app-tabbar--embedded': embedded }">
     <view
       v-for="item in tabs"
       :key="item.path"
@@ -18,6 +18,11 @@ defineProps({
   current: {
     type: String,
     required: true
+  },
+  /** 嵌入 TabPageLayout 时使用，取消 fixed 定位 */
+  embedded: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -38,17 +43,20 @@ function switchTab(path) {
 
 <style lang="scss" scoped>
 .app-tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 999;
   display: flex;
   background: rgba(255, 255, 255, 0.98);
   border-top: 1px solid $divider;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
   box-shadow: 0 -2rpx 16rpx rgba(0, 0, 0, 0.04);
+
+  &:not(.app-tabbar--embedded) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+  }
 }
 
 .app-tabbar__item {

@@ -26,15 +26,18 @@ const props = defineProps({
 
 const emit = defineEmits(['action', 'back'])
 
-const statusBarHeight = ref(0)
+const statusBarHeight = ref(getStatusBarHeight())
+
+function getStatusBarHeight() {
+  try {
+    return uni.getSystemInfoSync().statusBarHeight || 0
+  } catch (_) {
+    return 0
+  }
+}
 
 onMounted(() => {
-  try {
-    const info = uni.getSystemInfoSync()
-    statusBarHeight.value = info.statusBarHeight || 0
-  } catch (_) {
-    statusBarHeight.value = 0
-  }
+  statusBarHeight.value = getStatusBarHeight()
 })
 
 function onBack() {
