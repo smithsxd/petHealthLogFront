@@ -22,7 +22,7 @@
       <view class="card">
         <view class="card-title">
           <view class="icon-badge info">📝</view>
-          <text>基础信息</text>
+          <text>{{ editingPetId ? '修改信息' : '基础信息' }}</text>
         </view>
 
         <view class="form-item">
@@ -64,7 +64,8 @@
     </view>
 
     <view class="section">
-      <view class="btn-primary" @click="submitProfile">保存档案</view>
+      <view class="btn-primary" @click="submitProfile">{{ editingPetId ? '修改档案' : '保存档案' }}</view>
+      <view v-if="editingPetId" class="edit-cancel" @click="cancelEdit">取消修改</view>
       <view v-if="uploading" class="upload-progress">
         <view class="progress-bar">
           <view class="progress-fill" :style="{ width: progress + '%' }" />
@@ -74,7 +75,7 @@
     </view>
 
     <view class="section" v-if="savedPets.length">
-      <text class="section-sub saved-heading">我的宠物 · 左滑删除</text>
+      <text class="section-sub saved-heading">我的宠物 · 左滑删除 · 点击修改</text>
       <u-swipe-action>
         <u-swipe-action-item
           v-for="(p, i) in savedPets"
@@ -83,7 +84,7 @@
           :options="swipeOptions"
           @click="deletePet(p)"
         >
-          <view class="pet-list-card card">
+          <view class="pet-list-card card" :class="{ 'pet-list-card--editing': editingPetId === p._id }" @click="startEdit(p._id)">
             <view class="pet-list-avatar">
               <image v-if="p.avatar" class="pet-list-avatar-img" :src="p.avatar" mode="aspectFill" />
               <text v-else>{{ p.emoji }}</text>
@@ -114,10 +115,11 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TabPageLayout from '@/components/TabPageLayout/index.vue'
-import { petStore, loadPets, addPet, removePet, mapPetForList } from '@/store/pet.js'
+import { petStore, loadPets, addPet, updatePet, removePet, mapPetForList } from '@/store/pet.js'
 import { formatDisplayDate } from '@/cloud/helpers.js'
 import { uploadPetAvatar } from '@/cloud/upload.js'
 
+const editingPetId = ref('')
 const petName = ref('')
 const petBreed = ref('')
 const petType = ref('cat')
@@ -145,6 +147,40 @@ const savedPets = computed(() =>
     birthdayDisplay: formatDisplayDate(p.birthday) || '未设置'
   }))
 )
+
+function resetForm() {
+  editingPetId.value = ''
+  petName.value = ''
+  petBreed.value = ''
+  petType.value = 'cat'
+  petGender.value = 'female'
+  birthday.value = ''
+  birthdayDisplay.value = ''
+  avatarUrl.value = ''
+  avatarFileId.value = ''
+}
+
+function fillForm(pet) {
+  editingPetId.value = pet._id
+  petName.value = pet.name || ''
+  petBreed.value = pet.breed || ''
+  petType.value = pet.type || 'cat'
+  petGender.value = pet.gender || 'female'
+  birthday.value = pet.birthday || ''
+  birthdayDisplay.value = formatDisplayDate(pet.birthday) || ''
+  avatarUrl.value = pet.avatar || ''
+  avatarFileId.value = pet.avatar || ''
+}
+
+function startEdit(petId) {
+  const pet = petStore.pets.find((p) => p._id === petId)
+  if (!pet) return
+  fillForm(pet)
+}
+
+function cancelEdit() {
+  resetForm()
+}
 
 async function chooseAvatar() {
   if (uploading.value) return
@@ -187,6 +223,7 @@ async function deletePet(pet) {
       if (!res.confirm) return
       try {
         await removePet(pet._id)
+        if (editingPetId.value === pet._id) resetForm()
         uni.showToast({ title: '已删除', icon: 'success' })
       } catch (err) {
         console.error(err)
@@ -205,22 +242,26 @@ async function submitProfile() {
   submitting.value = true
   try {
     const type = petType.value === 'other' ? 'cat' : petType.value
-    await addPet({
+    const payload = {
       name: petName.value.trim(),
       type,
       breed: petBreed.value.trim(),
       gender: petGender.value,
       birthday: birthday.value,
       avatar: avatarFileId.value
-    })
-    petName.value = ''
-    petBreed.value = ''
-    avatarUrl.value = ''
-    avatarFileId.value = ''
-    uni.showToast({ title: '档案已保存', icon: 'success' })
+    }
+    if (editingPetId.value) {
+      await updatePet(editingPetId.value, payload)
+      uni.showToast({ title: '档案已修改', icon: 'success' })
+      resetForm()
+    } else {
+      await addPet(payload)
+      uni.showToast({ title: '档案已保存', icon: 'success' })
+      resetForm()
+    }
   } catch (err) {
     console.error(err)
-    uni.showToast({ title: '保存失败', icon: 'none' })
+    uni.showToast({ title: '操作失败', icon: 'none' })
   } finally {
     submitting.value = false
   }
@@ -316,6 +357,18 @@ onShow(() => {
   }
 }
 
+.edit-cancel {
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: $text-3;
+  padding: 16rpx;
+
+  &:active {
+    color: $text-2;
+  }
+}
+
 .upload-progress {
   margin-top: 24rpx;
 }
@@ -353,6 +406,11 @@ onShow(() => {
   align-items: center;
   gap: 28rpx;
   box-sizing: border-box;
+
+  &--editing {
+    background: $primary-light;
+    border: 2rpx solid $primary;
+  }
 }
 
 .section :deep(.u-swipe-action-item) {

@@ -62,7 +62,14 @@
       <view class="section-header">
         <text class="section-title">今日用药</text>
       </view>
-      <view v-if="ongoingMedication" class="med-card card">
+      <view v-if="ongoingMedication">
+        <u-swipe-action>
+          <u-swipe-action-item
+            :index="0"
+            :options="swipeOptions"
+            @click="deleteMedication"
+          >
+            <view class="med-card card">
         <view class="card-title" style="margin-bottom: 0">
           <view class="icon-badge primary">💊</view>
           <text>{{ ongoingMedication.title }}</text>
@@ -77,6 +84,9 @@
           </text>
         </view>
         <text class="med-tip">勾选标记当日完成，防止家人重复喂药</text>
+      </view>
+          </u-swipe-action-item>
+        </u-swipe-action>
       </view>
       <EmptyState v-else icon="💊" title="暂无进行中的用药" desc="可在医嘱页新增用药计划" />
     </view>
@@ -194,7 +204,8 @@ import {
   completeReminder,
   extendReminder,
   addReminder,
-  removeReminder
+  removeReminder,
+  removeMedication
 } from '@/store/pet.js'
 import { freqToTag, formatDisplayDate, todayISO, addDaysISO, reminderCycleDays } from '@/cloud/helpers.js'
 
@@ -386,6 +397,18 @@ async function deleteReminder(id) {
   }
 }
 
+async function deleteMedication() {
+  const id = ongoingMedication.value?._id
+  if (!id) return
+  try {
+    await removeMedication(id)
+    uni.showToast({ title: '已删除', icon: 'success' })
+  } catch (err) {
+    console.error(err)
+    uni.showToast({ title: '删除失败', icon: 'none' })
+  }
+}
+
 onShow(async () => {
   await loadPets()
   syncMedChecklist()
@@ -533,6 +556,11 @@ onShow(async () => {
       color: #fff;
     }
   }
+}
+
+.med-card {
+  border-radius: $radius-card;
+  overflow: hidden;
 }
 
 .med-divider {

@@ -198,6 +198,12 @@ export async function addPet(data) {
   return res
 }
 
+export async function updatePet(petId, data) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.PETS).doc(petId).update({ data })
+  await loadPets()
+}
+
 export async function removePet(petId) {
   if (!petId) return
   const db = await getDb()
@@ -315,6 +321,12 @@ export async function addMedication(payload) {
       create_time: Date.now()
     }
   })
+  await loadMedications()
+}
+
+export async function removeMedication(medId) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.MEDICATIONS).doc(medId).remove()
   await loadMedications()
 }
 
