@@ -1,0 +1,50 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "uview-plus/components/u-$1/u-$1.vue",
+      "^l-echart$": "@/uni_modules/lime-echart/components/l-echart/l-echart.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "毛孩子健康本"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "核心健康看板"
+      }
+    },
+    {
+      "path": "pages/weight/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "体重管理"
+      }
+    },
+    {
+      "path": "pages/medical/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "医嘱录入"
+      }
+    },
+    {
+      "path": "pages/archive/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "宠物档案"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f5f7fa"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "app-nav": "../AppNav/index",
+    "app-tab-bar": "../AppTabBar/index"
+  }
+}

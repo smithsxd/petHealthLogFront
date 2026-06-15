@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/home/index",
+    "pages/weight/index",
+    "pages/medical/index",
+    "pages/archive/index"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f5f7fa"
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {}
+}

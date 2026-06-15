@@ -1,0 +1,1 @@
+"use strict";const e=require("../common/vendor.js");exports.COLLECTIONS={PETS:"pets",WEIGHTS:"pet_weights",REMINDERS:"pet_reminders",MEDICATIONS:"pet_medications"},exports.getDb=function(){if(!e.wx$1.cloud)throw new Error("wx.cloud 不可用，请确认已开通云开发");return e.wx$1.cloud.database()},exports.isCloudReady=function(){return!!e.wx$1.cloud};

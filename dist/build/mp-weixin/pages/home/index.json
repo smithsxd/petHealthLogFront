@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "核心健康看板",
+  "usingComponents": {
+    "tab-page-layout": "../../components/TabPageLayout/index",
+    "pet-bar": "../../components/PetBar/index"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "体重管理",
+  "usingComponents": {
+    "l-echart": "../../uni_modules/lime-echart/components/l-echart/l-echart",
+    "u-swipe-action-item": "../../node-modules/uview-plus/components/u-swipe-action-item/u-swipe-action-item",
+    "u-swipe-action": "../../node-modules/uview-plus/components/u-swipe-action/u-swipe-action",
+    "u-datetime-picker": "../../node-modules/uview-plus/components/u-datetime-picker/u-datetime-picker",
+    "tab-page-layout": "../../components/TabPageLayout/index",
+    "pet-bar": "../../components/PetBar/index",
+    "empty-state": "../../components/EmptyState/index"
+  }
+}

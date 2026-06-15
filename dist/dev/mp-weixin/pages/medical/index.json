@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "医嘱录入",
+  "usingComponents": {
+    "u-datetime-picker": "../../node-modules/uview-plus/components/u-datetime-picker/u-datetime-picker",
+    "tab-page-layout": "../../components/TabPageLayout/index",
+    "pet-bar": "../../components/PetBar/index",
+    "empty-state": "../../components/EmptyState/index"
+  }
+}
