@@ -1,1 +1,0 @@
-"use strict";let t=null,n=!1;const e=new Promise(n=>{t=n});setTimeout(()=>{t&&(t(),t=null)},1e4),exports.CLOUD_ENV_ID="cloud1-d7g5qwrun8a445889",exports.isCloudFailed=function(){return n},exports.isCloudInited=function(){return null===t},exports.setCloudInited=function(e){t&&(e&&(n=!0),t(),t=null)},exports.waitForCloud=function(){return e};

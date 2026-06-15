@@ -32,7 +32,7 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "3.15.2",
+  "libVersion": "",
   "appid": "wxb2072e45bc057cc9",
   "projectname": "毛孩子健康本",
   "condition": {

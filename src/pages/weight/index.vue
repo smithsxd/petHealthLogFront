@@ -30,10 +30,12 @@
           </view>
           <view class="form-item">
             <text class="form-label">日期</text>
-            <view class="picker-cell" @click="showDatePicker = true">
-              <text class="picker-cell-text">{{ displayDate }}</text>
-              <text class="picker-cell-arrow">▾</text>
-            </view>
+            <picker mode="date" :value="dateVal" @change="onDateChange">
+              <view class="picker-cell">
+                <text class="picker-cell-text">{{ displayDate }}</text>
+                <text class="picker-cell-arrow">▾</text>
+              </view>
+            </picker>
           </view>
         </view>
         <view class="btn-primary" @click="recordWeight">记录体重</view>
@@ -88,14 +90,6 @@
     </view>
 
     <template #extra>
-      <u-datetime-picker
-        :show="showDatePicker"
-        v-model="datePickerVal"
-        mode="date"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
-        @close="showDatePicker = false"
-      />
     </template>
   </TabPageLayout>
 </template>
@@ -130,8 +124,6 @@ const echarts = getMpEcharts()
 const weightInput = ref('')
 const displayDate = ref(formatDisplayDate(todayISO()))
 const dateVal = ref(todayISO())
-const showDatePicker = ref(false)
-const datePickerVal = ref(Date.now())
 const range = ref('3m')
 const chartRef = ref(null)
 const showChart = ref(true)
@@ -225,14 +217,10 @@ async function recordWeight() {
   }
 }
 
-function onDateConfirm(e) {
-  const d = new Date(e.value)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  displayDate.value = `${y}年${m}月${day}日`
-  dateVal.value = `${y}-${m}-${day}`
-  showDatePicker.value = false
+function onDateChange(e) {
+  const val = e.detail.value
+  dateVal.value = val
+  displayDate.value = formatDisplayDate(val)
 }
 
 function getChartOption() {

@@ -1,1 +1,0 @@
-<view class="{{['app-tabbar', 'data-v-7a54387b', b && 'app-tabbar--embedded']}}"><view wx:for="{{a}}" wx:for-item="item" wx:key="c" class="{{['app-tabbar__item', 'data-v-7a54387b', item.d && 'active']}}" bindtap="{{item.e}}"><text class="app-tabbar__icon data-v-7a54387b">{{item.a}}</text><text class="app-tabbar__text data-v-7a54387b">{{item.b}}</text></view></view>

@@ -164,25 +164,18 @@
 
           <view class="form-item">
             <text class="form-label">预计日期</text>
-            <view class="picker-cell" @click="showReminderDatePicker = true">
-              <text class="picker-cell-text">{{ reminderDateDisplay || '请选择预计日期' }}</text>
-              <text class="picker-cell-arrow">▾</text>
-            </view>
+            <picker mode="date" :value="reminderForm.expectedDate" @change="onReminderDateChange">
+              <view class="picker-cell">
+                <text class="picker-cell-text">{{ reminderDateDisplay || '请选择预计日期' }}</text>
+                <text class="picker-cell-arrow">▾</text>
+              </view>
+            </picker>
           </view>
 
           <view class="btn-primary" @click="confirmAddReminder">确认添加</view>
           <view class="popup-cancel" @click="addReminderVisible = false">取消</view>
         </view>
       </view>
-
-      <u-datetime-picker
-        :show="showReminderDatePicker"
-        v-model="reminderDatePickerVal"
-        mode="date"
-        @confirm="onReminderDateConfirm"
-        @cancel="showReminderDatePicker = false"
-        @close="showReminderDatePicker = false"
-      />
     </template>
   </TabPageLayout>
 </template>
@@ -249,8 +242,6 @@ const reminderForm = reactive({
   expectedDate: ''
 })
 const reminderDateDisplay = ref('')
-const showReminderDatePicker = ref(false)
-const reminderDatePickerVal = ref(Date.now())
 
 function getDefaultExpectedDate(type) {
   return addDaysISO(todayISO(), reminderCycleDays(type))
@@ -350,14 +341,10 @@ function openAddReminder() {
   addReminderVisible.value = true
 }
 
-function onReminderDateConfirm(e) {
-  const d = new Date(e.value)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  reminderDateDisplay.value = `${y}年${m}月${day}日`
-  reminderForm.expectedDate = `${y}-${m}-${day}`
-  showReminderDatePicker.value = false
+function onReminderDateChange(e) {
+  const val = e.detail.value
+  reminderForm.expectedDate = val
+  reminderDateDisplay.value = formatDisplayDate(val)
 }
 
 async function confirmAddReminder() {

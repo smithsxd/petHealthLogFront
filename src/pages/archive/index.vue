@@ -1,5 +1,31 @@
 <template>
   <TabPageLayout title="宠物档案" show-back back-to-index tab-current="archive">
+    <!-- 我的宠物（置顶，更明显） -->
+    <view class="section" v-if="savedPets.length">
+      <text class="section-sub saved-heading">我的宠物 · 左滑删除 · 点击修改</text>
+      <u-swipe-action>
+        <u-swipe-action-item
+          v-for="(p, i) in savedPets"
+          :key="p._id"
+          :index="i"
+          :options="swipeOptions"
+          @click="deletePet(p)"
+        >
+          <view class="pet-list-card card" :class="{ 'pet-list-card--editing': editingPetId === p._id }" @click="startEdit(p._id)">
+            <view class="pet-list-avatar">
+              <image v-if="p.avatar" class="pet-list-avatar-img" :src="p.avatar" mode="aspectFill" />
+              <text v-else>{{ p.emoji }}</text>
+            </view>
+            <view class="pet-list-info">
+              <text class="pet-list-name">{{ p.name }}</text>
+              <text class="pet-list-meta">{{ p.typeLabel }} · {{ p.genderLabel }} · {{ p.birthdayDisplay }}</text>
+            </view>
+          </view>
+        </u-swipe-action-item>
+      </u-swipe-action>
+    </view>
+
+    <!-- 头像 -->
     <view class="section">
       <view class="card">
         <view class="card-title">
@@ -55,10 +81,12 @@
 
         <view class="form-item">
           <text class="form-label">生日</text>
-          <view class="picker-cell" @click="showDatePicker = true">
+          <picker mode="date" :value="birthday" @change="onDateChange">
+              <view class="picker-cell">
             <text class="picker-cell-text">{{ birthdayDisplay || '请选择生日' }}</text>
             <text class="picker-cell-arrow">▾</text>
           </view>
+            </picker>
         </view>
       </view>
     </view>
@@ -74,39 +102,7 @@
       </view>
     </view>
 
-    <view class="section" v-if="savedPets.length">
-      <text class="section-sub saved-heading">我的宠物 · 左滑删除 · 点击修改</text>
-      <u-swipe-action>
-        <u-swipe-action-item
-          v-for="(p, i) in savedPets"
-          :key="p._id"
-          :index="i"
-          :options="swipeOptions"
-          @click="deletePet(p)"
-        >
-          <view class="pet-list-card card" :class="{ 'pet-list-card--editing': editingPetId === p._id }" @click="startEdit(p._id)">
-            <view class="pet-list-avatar">
-              <image v-if="p.avatar" class="pet-list-avatar-img" :src="p.avatar" mode="aspectFill" />
-              <text v-else>{{ p.emoji }}</text>
-            </view>
-            <view class="pet-list-info">
-              <text class="pet-list-name">{{ p.name }}</text>
-              <text class="pet-list-meta">{{ p.typeLabel }} · {{ p.genderLabel }} · {{ p.birthdayDisplay }}</text>
-            </view>
-          </view>
-        </u-swipe-action-item>
-      </u-swipe-action>
-    </view>
-
     <template #extra>
-      <u-datetime-picker
-        :show="showDatePicker"
-        v-model="datePickerVal"
-        mode="date"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
-        @close="showDatePicker = false"
-      />
     </template>
   </TabPageLayout>
 </template>
@@ -128,8 +124,6 @@ const birthday = ref('')
 const birthdayDisplay = ref('')
 const avatarUrl = ref('')
 const avatarFileId = ref('')
-const showDatePicker = ref(false)
-const datePickerVal = ref(Date.now())
 const uploading = ref(false)
 const progress = ref(0)
 const progressText = ref('')
@@ -203,14 +197,10 @@ async function chooseAvatar() {
   }
 }
 
-function onDateConfirm(e) {
-  const d = new Date(e.value)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  birthdayDisplay.value = `${y}年${m}月${day}日`
-  birthday.value = `${y}-${m}-${day}`
-  showDatePicker.value = false
+function onDateChange(e) {
+  const val = e.detail.value
+  birthday.value = val
+  birthdayDisplay.value = formatDisplayDate(val)
 }
 
 async function deletePet(pet) {
