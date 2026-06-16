@@ -39,7 +39,9 @@
       "path": "pages/review/index",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "就医指南"
+        "navigationBarTitleText": "就医指南",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 120
       }
     },
     {

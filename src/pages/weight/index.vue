@@ -398,7 +398,8 @@ onUnmounted(() => {
 
 .chart-wrap {
   padding-top: 0;
-  padding-bottom: 12rpx;
+  padding-bottom: 48rpx;
+  margin-bottom: 32rpx;
 }
 
 .chart-tabs {

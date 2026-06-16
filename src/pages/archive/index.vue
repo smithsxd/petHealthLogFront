@@ -1,6 +1,6 @@
 <template>
   <TabPageLayout title="宠物档案" show-back back-to-index tab-current="archive">
-    <!-- 我的宠物（置顶，更明显） -->
+    <!-- 我的宠物列表 -->
     <view class="section" v-if="savedPets.length">
       <text class="section-sub saved-heading">我的宠物 · 左滑删除 · 点击修改</text>
       <u-swipe-action>
@@ -25,84 +25,94 @@
       </u-swipe-action>
     </view>
 
-    <!-- 头像 -->
-    <view class="section">
-      <view class="card">
-        <view class="card-title">
-          <view class="icon-badge purple">📷</view>
-          <text>头像</text>
+    <!-- 无表单时：新建入口 -->
+    <view class="section" v-if="!showForm">
+      <view class="btn-primary" @click="startCreate">+ 新建宠物档案</view>
+      <text v-if="!savedPets.length" class="empty-hint">还没有宠物，点击上方按钮开始添加</text>
+    </view>
+
+    <!-- 编辑 / 新建表单（点击宠物或新建后显示） -->
+    <template v-if="showForm">
+      <view class="section">
+        <view class="card">
+          <view class="card-title">
+            <view class="icon-badge purple">📷</view>
+            <text>头像</text>
+          </view>
+          <view class="avatar-section">
+            <view class="avatar-outer">
+              <view class="avatar-inner" @click="chooseAvatar">
+                <image v-if="avatarUrl" class="avatar-img" :src="avatarUrl" mode="aspectFill" />
+                <text v-else class="avatar-placeholder">🐾</text>
+              </view>
+            </view>
+            <text class="avatar-hint">点击上传照片</text>
+          </view>
         </view>
-        <view class="avatar-section">
-          <view class="avatar-outer">
-            <view class="avatar-inner" @click="chooseAvatar">
-              <image v-if="avatarUrl" class="avatar-img" :src="avatarUrl" mode="aspectFill" />
-              <text v-else class="avatar-placeholder">🐾</text>
+      </view>
+
+      <view class="section">
+        <view class="card">
+          <view class="card-title">
+            <view class="icon-badge info">📝</view>
+            <text>{{ editingPetId ? '修改信息' : '新建档案' }}</text>
+          </view>
+
+          <view class="form-item">
+            <text class="form-label">宠物名字</text>
+            <input class="form-input" v-model="petName" placeholder="给毛孩子取个名字吧" maxlength="10" />
+            <text class="form-counter">{{ petName.length }} / 10</text>
+          </view>
+
+          <view class="form-item">
+            <text class="form-label">品种</text>
+            <input class="form-input" v-model="petBreed" placeholder="例：英短蓝猫" />
+          </view>
+
+          <view class="form-item">
+            <text class="form-label">类型</text>
+            <view class="radio-group">
+              <view class="radio-item" :class="{ selected: petType === 'cat' }" @click="selectType('cat')">🐱 猫咪</view>
+              <view class="radio-item" :class="{ selected: petType === 'dog' }" @click="selectType('dog')">🐶 狗狗</view>
+              <view class="radio-item" :class="{ selected: petType === 'other' }" @click="selectType('other')">🐹 其他</view>
             </view>
           </view>
-          <text class="avatar-hint">点击上传照片</text>
-        </view>
-      </view>
-    </view>
 
-    <view class="section">
-      <view class="card">
-        <view class="card-title">
-          <view class="icon-badge info">📝</view>
-          <text>{{ editingPetId ? '修改信息' : '基础信息' }}</text>
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">宠物名字</text>
-          <input class="form-input" v-model="petName" placeholder="给毛孩子取个名字吧" maxlength="10" />
-          <text class="form-counter">{{ petName.length }} / 10</text>
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">品种</text>
-          <input class="form-input" v-model="petBreed" placeholder="例：英短蓝猫" />
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">类型</text>
-          <view class="radio-group">
-            <view class="radio-item" :class="{ selected: petType === 'cat' }" @click="petType = 'cat'">🐱 猫咪</view>
-            <view class="radio-item" :class="{ selected: petType === 'dog' }" @click="petType = 'dog'">🐶 狗狗</view>
-            <view class="radio-item" :class="{ selected: petType === 'other' }" @click="petType = 'other'">🐹 其他</view>
+          <view class="form-item" v-if="petType === 'other'">
+            <text class="form-label">自定义类型</text>
+            <input class="form-input" v-model="petTypeCustom" placeholder="例：仓鼠、兔子、鹦鹉…" maxlength="10" />
           </view>
-        </view>
 
-        <view class="form-item">
-          <text class="form-label">性别</text>
-          <view class="gender-row">
-            <view class="gender-opt" :class="{ selected: petGender === 'female' }" @click="petGender = 'female'">妹妹</view>
-            <view class="gender-opt" :class="{ selected: petGender === 'male' }" @click="petGender = 'male'">弟弟</view>
+          <view class="form-item">
+            <text class="form-label">性别</text>
+            <view class="gender-row">
+              <view class="gender-opt" :class="{ selected: petGender === 'female' }" @click="petGender = 'female'">妹妹</view>
+              <view class="gender-opt" :class="{ selected: petGender === 'male' }" @click="petGender = 'male'">弟弟</view>
+            </view>
           </view>
-        </view>
 
-        <view class="form-item">
-          <text class="form-label">生日</text>
-          <picker mode="date" :value="birthday" @change="onDateChange">
+          <view class="form-item">
+            <text class="form-label">生日</text>
+            <picker mode="date" :value="birthday" @change="onDateChange">
               <view class="picker-cell">
-            <text class="picker-cell-text">{{ birthdayDisplay || '请选择生日' }}</text>
-            <text class="picker-cell-arrow">▾</text>
-          </view>
+                <text class="picker-cell-text">{{ birthdayDisplay || '请选择生日' }}</text>
+                <text class="picker-cell-arrow">▾</text>
+              </view>
             </picker>
+          </view>
         </view>
       </view>
-    </view>
 
-    <view class="section">
-      <view class="btn-primary" @click="submitProfile">{{ editingPetId ? '修改档案' : '保存档案' }}</view>
-      <view v-if="editingPetId" class="edit-cancel" @click="cancelEdit">取消修改</view>
-      <view v-if="uploading" class="upload-progress">
-        <view class="progress-bar">
-          <view class="progress-fill" :style="{ width: progress + '%' }" />
+      <view class="section">
+        <view class="btn-primary" @click="submitProfile">{{ editingPetId ? '保存修改' : '保存档案' }}</view>
+        <view class="edit-cancel" @click="cancelEdit">取消</view>
+        <view v-if="uploading" class="upload-progress">
+          <view class="progress-bar">
+            <view class="progress-fill" :style="{ width: progress + '%' }" />
+          </view>
+          <text class="progress-text">{{ progressText }}</text>
         </view>
-        <text class="progress-text">{{ progressText }}</text>
       </view>
-    </view>
-
-    <template #extra>
     </template>
   </TabPageLayout>
 </template>
@@ -116,9 +126,11 @@ import { formatDisplayDate } from '@/cloud/helpers.js'
 import { uploadPetAvatar } from '@/cloud/upload.js'
 
 const editingPetId = ref('')
+const creatingNew = ref(false)
 const petName = ref('')
 const petBreed = ref('')
 const petType = ref('cat')
+const petTypeCustom = ref('')
 const petGender = ref('female')
 const birthday = ref('')
 const birthdayDisplay = ref('')
@@ -128,6 +140,8 @@ const uploading = ref(false)
 const progress = ref(0)
 const progressText = ref('')
 const submitting = ref(false)
+
+const showForm = computed(() => !!editingPetId.value || creatingNew.value)
 
 const swipeOptions = [{
   text: '删除',
@@ -144,9 +158,11 @@ const savedPets = computed(() =>
 
 function resetForm() {
   editingPetId.value = ''
+  creatingNew.value = false
   petName.value = ''
   petBreed.value = ''
   petType.value = 'cat'
+  petTypeCustom.value = ''
   petGender.value = 'female'
   birthday.value = ''
   birthdayDisplay.value = ''
@@ -154,11 +170,20 @@ function resetForm() {
   avatarFileId.value = ''
 }
 
+function normalizePetType(type) {
+  if (type === 'dog') return 'dog'
+  if (type === 'cat') return 'cat'
+  return 'other'
+}
+
 function fillForm(pet) {
   editingPetId.value = pet._id
+  creatingNew.value = false
   petName.value = pet.name || ''
   petBreed.value = pet.breed || ''
-  petType.value = pet.type || 'cat'
+  petType.value = normalizePetType(pet.type)
+  petTypeCustom.value = pet.type_custom || (pet.type && !['cat', 'dog', 'other'].includes(pet.type) ? pet.type : '')
+  if (petTypeCustom.value) petType.value = 'other'
   petGender.value = pet.gender || 'female'
   birthday.value = pet.birthday || ''
   birthdayDisplay.value = formatDisplayDate(pet.birthday) || ''
@@ -166,10 +191,22 @@ function fillForm(pet) {
   avatarFileId.value = pet.avatar || ''
 }
 
+function startCreate() {
+  resetForm()
+  creatingNew.value = true
+}
+
 function startEdit(petId) {
   const pet = petStore.pets.find((p) => p._id === petId)
   if (!pet) return
   fillForm(pet)
+}
+
+function selectType(type) {
+  petType.value = type
+  if (type !== 'other') {
+    petTypeCustom.value = ''
+  }
 }
 
 function cancelEdit() {
@@ -228,13 +265,17 @@ async function submitProfile() {
     uni.showToast({ title: '请填写宠物名字', icon: 'none' })
     return
   }
+  if (petType.value === 'other' && !petTypeCustom.value.trim()) {
+    uni.showToast({ title: '请填写自定义类型', icon: 'none' })
+    return
+  }
   if (submitting.value) return
   submitting.value = true
   try {
-    const type = petType.value === 'other' ? 'cat' : petType.value
     const payload = {
       name: petName.value.trim(),
-      type,
+      type: petType.value,
+      type_custom: petType.value === 'other' ? petTypeCustom.value.trim() : '',
       breed: petBreed.value.trim(),
       gender: petGender.value,
       birthday: birthday.value,
@@ -243,12 +284,11 @@ async function submitProfile() {
     if (editingPetId.value) {
       await updatePet(editingPetId.value, payload)
       uni.showToast({ title: '档案已修改', icon: 'success' })
-      resetForm()
     } else {
       await addPet(payload)
       uni.showToast({ title: '档案已保存', icon: 'success' })
-      resetForm()
     }
+    resetForm()
   } catch (err) {
     console.error(err)
     uni.showToast({ title: '操作失败', icon: 'none' })
@@ -263,6 +303,14 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+.empty-hint {
+  display: block;
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-3);
+}
+
 .avatar-section {
   display: flex;
   flex-direction: column;
@@ -283,7 +331,7 @@ onShow(() => {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: var(--bg-page);
+  background: var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -336,7 +384,8 @@ onShow(() => {
   border: 2rpx solid var(--border);
   border-radius: $radius-input;
   font-size: 28rpx;
-  background: var(--bg-card);
+  color: var(--text-2);
+  background: var(--bg-input);
   transition: all 0.2s;
 
   &.selected {
@@ -396,6 +445,8 @@ onShow(() => {
   align-items: center;
   gap: 28rpx;
   box-sizing: border-box;
+  background: var(--bg-card-gradient);
+  border: 1rpx solid var(--border);
 
   &--editing {
     background: var(--primary-light);
@@ -407,13 +458,18 @@ onShow(() => {
   margin-bottom: 20rpx;
   border-radius: $radius-card;
   overflow: hidden;
+  background: transparent !important;
+}
+
+.section :deep(.u-swipe-action-item__content) {
+  background: transparent !important;
 }
 
 .pet-list-avatar {
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  background: var(--bg-page);
+  background: var(--bg-input);
   display: flex;
   align-items: center;
   justify-content: center;

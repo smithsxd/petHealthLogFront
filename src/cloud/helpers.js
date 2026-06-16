@@ -4,9 +4,11 @@ export function petEmoji(type) {
   return '🐹'
 }
 
-export function typeLabel(type) {
-  const map = { cat: '猫咪', dog: '狗狗' }
-  return map[type] || '其他'
+export function typeLabel(type, customType) {
+  if (type === 'cat') return '猫咪'
+  if (type === 'dog') return '狗狗'
+  if (customType) return customType
+  return '其他'
 }
 
 export function genderLabel(gender) {

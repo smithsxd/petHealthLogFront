@@ -37,6 +37,9 @@ export function getCityList() {
   return Object.keys(CITY_DISTRICTS)
 }
 
+/** 就医指南列表每页条数 */
+export const REVIEW_PAGE_SIZE = 20
+
 /** 本地开发 / 定位失败时的默认城市 */
 export const DEFAULT_CITY = '北京市'
 export const DEFAULT_DISTRICT = '海淀区'

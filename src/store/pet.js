@@ -351,7 +351,7 @@ export function mapPetForList(p) {
     _id: p._id,
     emoji: petEmoji(p.type),
     name: p.name,
-    typeLabel: typeLabel(p.type),
+    typeLabel: typeLabel(p.type, p.type_custom),
     genderLabel: genderLabel(p.gender),
     birthday: p.birthday,
     breed: p.breed || ''

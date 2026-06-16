@@ -41,8 +41,8 @@ const tabs = [
   { key: 'home', path: '/pages/home/index', text: '看板', icon: 'home', iconActive: 'home-fill' },
   { key: 'weight', path: '/pages/weight/index', text: '体重', icon: 'grid', iconActive: 'grid-fill' },
   { key: 'medical', path: '/pages/medical/index', text: '医嘱', icon: 'file-text', iconActive: 'file-text-fill' },
-  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' },
-  { key: 'review', path: '/pages/review/index', text: '指南', icon: 'bookmark', iconActive: 'bookmark-fill' }
+  { key: 'review', path: '/pages/review/index', text: '指南', icon: 'bookmark', iconActive: 'bookmark-fill' },
+  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' }
 ]
 
 function switchTab(path) {
@@ -60,7 +60,7 @@ function switchTab(path) {
   border-top: 1px solid var(--divider);
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.08);
   transition: background 0.35s ease;
 
   &:not(.app-tabbar--embedded) {

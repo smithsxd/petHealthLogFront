@@ -31,8 +31,8 @@
       </view>
 
       <view v-if="!loading && (allReviews.length || dbCount > 0)" class="list-meta">
-        <text>共 {{ allReviews.length || dbCount }} 条</text>
-        <text v-if="dbCount > allReviews.length"> · 云库 {{ dbCount }} 条</text>
+        <text>共 {{ dbCount || allReviews.length }} 条</text>
+        <text v-if="dbCount > allReviews.length"> · 已加载 {{ allReviews.length }}</text>
         <text v-if="filteredList.length !== allReviews.length"> · 当前筛选 {{ filteredList.length }} 条</text>
         <text v-if="filteredList.length !== allReviews.length" class="list-meta__hint">（可点「全部区县」查看全部）</text>
       </view>
@@ -69,7 +69,10 @@
           :desc="emptyFilterHint"
         />
         <view v-if="allReviews.length && currentDistrict !== '全部区县'" class="filter-reset press-soft" @click="resetFilters">
-          查看全部区县（共 {{ allReviews.length }} 条）
+          查看全部区县（已加载 {{ allReviews.length }} 条）
+        </view>
+        <view v-if="!filteredList.length && hasMore && allReviews.length" class="filter-reset press-soft" @click="loadMore">
+          上拉或点此加载更多
         </view>
       </view>
 
@@ -115,6 +118,14 @@
               🗑️ 删除
             </view>
           </view>
+        </view>
+
+        <view v-if="hasMore || loadingMore" class="load-more">
+          <text v-if="loadingMore">加载中...</text>
+          <text v-else-if="hasMore">上拉加载更多（{{ allReviews.length }} / {{ dbCount || '?' }}）</text>
+        </view>
+        <view v-else-if="allReviews.length" class="load-more load-more--done">
+          <text>— 已加载全部 —</text>
         </view>
       </view>
 
@@ -187,14 +198,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import AppNav from '@/components/AppNav/index.vue'
 import AppTabBar from '@/components/AppTabBar/index.vue'
 import EmptyState from '@/components/EmptyState/index.vue'
 import { themeClass } from '@/store/theme.js'
-import { ADMIN_OPENID, listTypeLabel, formatReviewTime, DEFAULT_CITY } from '@/utils/reviewConstants.js'
+import { ADMIN_OPENID, listTypeLabel, formatReviewTime, DEFAULT_CITY, REVIEW_PAGE_SIZE } from '@/utils/reviewConstants.js'
 import {
-  fetchAllReviews,
+  fetchReviewsPage,
   fetchReviewById,
   fetchCurrentOpenId,
   adminDeleteReview,
@@ -203,7 +214,7 @@ import {
   handleReviewError,
   mergeReviewLists
 } from '@/cloud/review.js'
-import { filterReviews, normalizeReview, getDistrictOptionsForReviews } from '@/utils/reviewFilter.js'
+import { filterReviews, normalizeReview, getDistrictOptionsForReviews, getReviewTimestamp } from '@/utils/reviewFilter.js'
 
 const loading = ref(true)
 const allReviews = ref([])
@@ -218,6 +229,9 @@ const brokenReceiptUrls = ref(new Set())
 const writeBlocked = ref(false)
 const writeError = ref('')
 const dbCount = ref(0)
+const hasMore = ref(true)
+const loadingMore = ref(false)
+const cursorBeforeTime = ref(null)
 const bodyStyle = ref(calcBodyStyle())
 const lastPublishedAt = ref(0)
 
@@ -322,36 +336,61 @@ function mergeReviewIntoList(doc) {
   }
 }
 
-async function fetchReviews({ silent = false } = {}) {
-  if (!silent) {
+async function fetchReviews({ silent = false, reset = true } = {}) {
+  if (!silent && reset) {
     loading.value = true
     loadError.value = ''
+  }
+  if (reset) {
+    hasMore.value = true
+    cursorBeforeTime.value = null
   }
   const prevList = allReviews.value
   try {
     const ping = await pingCloudReviews()
     writeBlocked.value = !ping.writeOk
     writeError.value = ping.writeError || ''
-    dbCount.value = ping.count || 0
+    if (reset) {
+      dbCount.value = ping.count || 0
+    }
 
     if (!ping.ok) {
       if (!silent) {
         loadError.value = ping.error
         allReviews.value = []
+        hasMore.value = false
         uni.showToast({ title: (ping.error || '云数据库不可用').slice(0, 36), icon: 'none', duration: 4000 })
       }
       return
     }
 
-    const { list, error, dbCount: fetchedCount } = await fetchAllReviews()
+    const { list, error, dbCount: fetchedCount, hasMore: more } = await fetchReviewsPage({
+      limit: REVIEW_PAGE_SIZE,
+      beforeTime: reset ? null : cursorBeforeTime.value,
+      withCount: reset
+    })
     if (typeof fetchedCount === 'number') {
       dbCount.value = fetchedCount
     }
-    allReviews.value = mergeReviewLists(list, silent ? prevList : [])
+
+    if (reset) {
+      allReviews.value = mergeReviewLists(list, silent ? prevList : [])
+    } else {
+      allReviews.value = mergeReviewLists(list, allReviews.value)
+    }
+
+    hasMore.value = more
+    if (list.length) {
+      const last = list[list.length - 1]
+      cursorBeforeTime.value = getReviewTimestamp(last) || last.create_time || null
+    } else if (!reset) {
+      hasMore.value = false
+    }
+
     if (!silent) {
       loadError.value = error
     }
-    console.log('[review] ui list:', allReviews.value.length, 'dbCount:', dbCount.value, 'filter:', currentDistrict.value, currentListType.value)
+    console.log('[review] ui list:', allReviews.value.length, 'dbCount:', dbCount.value, 'hasMore:', hasMore.value)
     if (!silent && error && !allReviews.value.length) {
       uni.showToast({ title: error.slice(0, 30), icon: 'none', duration: 3000 })
     }
@@ -359,12 +398,23 @@ async function fetchReviews({ silent = false } = {}) {
     if (!silent) {
       loadError.value = err?.message || '加载评价失败'
       allReviews.value = []
+      hasMore.value = false
       handleReviewError(err, '加载评价失败')
     }
   } finally {
-    if (!silent) {
+    if (!silent && reset) {
       loading.value = false
     }
+  }
+}
+
+async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  try {
+    await fetchReviews({ silent: true, reset: false })
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -477,6 +527,18 @@ onMounted(() => {
 onUnmounted(() => {
   uni.$off('review-published', onReviewPublished)
   uni.$off('review-updated', onReviewUpdated)
+})
+
+onReachBottom(() => {
+  loadMore()
+})
+
+onPullDownRefresh(async () => {
+  try {
+    await fetchReviews({ reset: true })
+  } finally {
+    uni.stopPullDownRefresh()
+  }
 })
 </script>
 
@@ -594,6 +656,17 @@ onUnmounted(() => {
   font-size: 26rpx;
   color: var(--primary);
   padding: 16rpx 32rpx;
+}
+
+.load-more {
+  padding: 32rpx 0 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-muted, #999);
+}
+
+.load-more--done {
+  color: var(--text-muted, #bbb);
 }
 
 .tab-item {

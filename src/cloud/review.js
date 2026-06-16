@@ -4,11 +4,11 @@ import { CLOUD_ENV_ID, ensureCloud, isCloudFileForCurrentEnv } from '@/cloud/con
 import { getDb, COLLECTIONS } from '@/cloud/db.js'
 import { cloudGet } from '@/cloud/query.js'
 import { cloudErrorToast, parseCloudError, formatDbPermissionHint } from '@/cloud/errors.js'
-import { ADMIN_OPENID } from '@/utils/reviewConstants.js'
+import { ADMIN_OPENID, REVIEW_PAGE_SIZE } from '@/utils/reviewConstants.js'
 import { filterReviews, normalizeReview, getReviewTimestamp } from '@/utils/reviewFilter.js'
 import { cacheOpenId, getCachedOpenId } from '@/utils/openid.js'
 
-export { ADMIN_OPENID }
+export { ADMIN_OPENID, REVIEW_PAGE_SIZE }
 
 const PING_CONTENT = '__review_write_ping__'
 
@@ -85,18 +85,65 @@ export function mergeReviewLists(incoming, existing) {
   return [...map.values()].sort((a, b) => getReviewTimestamp(b) - getReviewTimestamp(a))
 }
 
-/** 直连云数据库拉取评价列表 */
-async function fetchReviewsFromDb() {
-  const db = await getDb()
-  const coll = db.collection(COLLECTIONS.REVIEWS)
-  const list = await cloudGet(
-    () => coll.limit(100).get(),
-    { label: 'reviews', retries: 2 }
-  )
-  return list
+function normalizeReviewList(rawList) {
+  return (rawList || [])
     .map(normalizeReview)
     .filter((r) => r && !isPingRecord(r))
     .sort((a, b) => getReviewTimestamp(b) - getReviewTimestamp(a))
+}
+
+/**
+ * 分页拉取评价（按 create_time 降序游标，避免 skip 在大数据量下变慢）
+ * @param {{ limit?: number, beforeTime?: number|null, withCount?: boolean }} options
+ */
+export async function fetchReviewsPage({ limit = REVIEW_PAGE_SIZE, beforeTime = null, withCount = false } = {}) {
+  try {
+    const db = await getDb()
+    const coll = db.collection(COLLECTIONS.REVIEWS)
+    const _ = db.command
+
+    let dbCount
+    if (withCount) {
+      const countRes = await coll.count()
+      dbCount = countRes?.total ?? 0
+    }
+
+    const runQuery = () => {
+      if (beforeTime != null && beforeTime > 0) {
+        return coll
+          .where({ create_time: _.lt(beforeTime) })
+          .orderBy('create_time', 'desc')
+          .limit(limit)
+          .get()
+      }
+      return coll.orderBy('create_time', 'desc').limit(limit).get()
+    }
+
+    const raw = await cloudGet(runQuery, { label: 'reviews-page', retries: 2 })
+    const list = normalizeReviewList(raw)
+
+    if (typeof dbCount === 'number' && dbCount > 0 && !beforeTime && list.length === 0) {
+      return {
+        list: [],
+        hasMore: false,
+        dbCount,
+        error:
+          `云库有 ${dbCount} 条记录但读不到。请检查 hospital_reviews 权限 read 是否为 true，` +
+          `以及环境 ID 是否为 ${CLOUD_ENV_ID}`
+      }
+    }
+
+    return {
+      list,
+      hasMore: raw.length >= limit,
+      dbCount,
+      error: ''
+    }
+  } catch (err) {
+    console.error('[review] fetchReviewsPage failed:', err)
+    const info = cloudErrorToast(err, '加载评价失败')
+    return { list: [], hasMore: false, dbCount: 0, error: info }
+  }
 }
 
 /** 按 ID 拉取单条（发布后即时回显） */
@@ -119,29 +166,11 @@ export async function fetchReviewById(reviewId) {
  * 拉取原始列表
  * @returns {{ list: Array, error: string }}
  */
+/** 拉取首页（兼容旧调用方） */
 export async function fetchAllReviews() {
-  try {
-    const db = await getDb()
-    const countRes = await db.collection(COLLECTIONS.REVIEWS).count()
-    const dbCount = countRes?.total ?? 0
-    const list = await fetchReviewsFromDb()
-    console.log('[review] loaded from db, get:', list.length, 'count():', dbCount)
-
-    if (dbCount > 0 && list.length === 0) {
-      return {
-        list: [],
-        error:
-          `云库有 ${dbCount} 条记录但读不到。请检查 hospital_reviews 权限 read 是否为 true，` +
-          `以及环境 ID 是否为 ${CLOUD_ENV_ID}`
-      }
-    }
-
-    return { list, error: '', dbCount }
-  } catch (err) {
-    console.error('[review] db fetch failed:', err)
-    const info = cloudErrorToast(err, '加载评价失败')
-    return { list: [], error: info, dbCount: 0 }
-  }
+  const result = await fetchReviewsPage({ withCount: true })
+  console.log('[review] loaded page 1, get:', result.list.length, 'count():', result.dbCount)
+  return result
 }
 
 export async function loadReviews(options = {}) {
@@ -151,9 +180,12 @@ export async function loadReviews(options = {}) {
 
 export async function countVerifiedReviews() {
   try {
-    const list = await fetchReviewsFromDb()
-    const verified = list.filter((r) => r.hasReceipt).length
-    return verified || list.length
+    const db = await getDb()
+    const coll = db.collection(COLLECTIONS.REVIEWS)
+    const verifiedRes = await coll.where({ hasReceipt: true }).count()
+    if (verifiedRes?.total > 0) return verifiedRes.total
+    const totalRes = await coll.count()
+    return totalRes?.total || 0
   } catch (_) {
     return 0
   }

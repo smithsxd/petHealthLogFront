@@ -94,6 +94,6 @@ function calcBodyStyle() {
 }
 
 .tab-page-layout__spacer {
-  height: 32rpx;
+  height: 48rpx;
 }
 </style>
