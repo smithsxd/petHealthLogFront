@@ -1,4 +1,5 @@
 import { isCloudFileForCurrentEnv } from '@/cloud/config.js'
+import { normalizeListType, listTypeMatches } from '@/utils/reviewConstants.js'
 
 /** 验单图片地址是否可用于 <image> 渲染 */
 export function isValidReceiptSrc(src) {
@@ -16,8 +17,8 @@ export function isValidReceiptSrc(src) {
 export function getReviewTimestamp(doc) {
   if (!doc) return 0
   const raw =
-    doc.create_time ??
     doc.createTime ??
+    doc.create_time ??
     doc._createTime ??
     doc._updateTime ??
     doc.created_at ??
@@ -29,25 +30,43 @@ export function getReviewTimestamp(doc) {
   return n || 0
 }
 
-/** 兼容手动导入 / 不同命名风格的字段 */
+/** 云库排序字段（与库内 createTime 一致；兼容旧数据 create_time） */
+export const REVIEW_SORT_FIELD = 'createTime'
+
+/** 读取榜单原始字段（库中主字段为 type） */
+export function extractListTypeRaw(doc) {
+  if (!doc) return ''
+  const raw = doc.type ?? doc.list_type ?? doc.listType
+  return raw == null ? '' : String(raw)
+}
+
+/** 兼容驼峰 / 下划线两种库表结构 */
 export function normalizeReview(doc) {
   if (!doc) return doc
   const receiptImgRaw = doc.receiptImg || doc.receipt_img || ''
   const receiptImg = isValidReceiptSrc(receiptImgRaw) ? receiptImgRaw : ''
   const hasReceipt = !!(doc.hasReceipt ?? doc.has_receipt ?? receiptImg)
   const create_time = getReviewTimestamp(doc)
+  const list_type = normalizeListType(extractListTypeRaw(doc) || 'red')
+  const hospital_name = doc.hospital_name || doc.hospitalName || '未知医院'
+  const insurance_type = doc.insurance_type || doc.insuranceType || ''
   return {
     ...doc,
-    hospital_name: doc.hospital_name || doc.hospitalName || '未知医院',
-    list_type: doc.list_type || doc.listType || 'red',
+    hospital_name,
+    hospitalName: hospital_name,
+    list_type,
+    type: list_type,
     city: doc.city || '',
     district: doc.district || '',
-    insurance_type: doc.insurance_type || doc.insuranceType || '',
-    tags: doc.tags || [],
+    insurance_type,
+    insuranceType: insurance_type,
+    tags: Array.isArray(doc.tags) ? doc.tags : [],
     content: doc.content || '',
+    nickName: doc.nickName || doc.nick_name || '',
     hasReceipt,
     receiptImg,
-    create_time
+    create_time,
+    createTime: create_time
   }
 }
 
@@ -64,7 +83,7 @@ export function normalizeDistrict(district) {
 
 export function districtMatches(recordDistrict, filterDistrict) {
   if (!filterDistrict || filterDistrict === '全部区县') return true
-  if (!recordDistrict) return true
+  if (!recordDistrict) return false
   return (
     recordDistrict === filterDistrict ||
     normalizeDistrict(recordDistrict) === normalizeDistrict(filterDistrict)
@@ -73,52 +92,61 @@ export function districtMatches(recordDistrict, filterDistrict) {
 
 export function cityMatches(recordCity, filterCity) {
   if (!filterCity) return true
-  if (!recordCity) return true
+  if (!recordCity) return false
   return normalizeCity(recordCity) === normalizeCity(filterCity)
 }
 
-import { getDistrictsForCity } from '@/utils/reviewConstants.js'
-
-export function getDistrictOptionsForReviews(reviews, city, fallbackCity = '北京市') {
-  const options = ['全部区县']
-  const list = reviews || []
-  let districts = []
-
-  if (city) {
-    districts = [
-      ...new Set(
-        list
-          .filter((r) => cityMatches(r.city, city))
-          .map((r) => r.district)
-          .filter(Boolean)
-      )
-    ]
+/** 城市筛选项：仅展示已有评价数据的城市 */
+export function getCityOptionsForReviews(reviews, { defaultCity = '北京市' } = {}) {
+  const list = (reviews || []).map(normalizeReview).filter(Boolean)
+  const cityMap = new Map()
+  for (const r of list) {
+    if (!r.city) continue
+    const key = normalizeCity(r.city)
+    if (!cityMap.has(key)) cityMap.set(key, r.city)
   }
-
-  if (!districts.length && city) {
-    districts = getDistrictsForCity(city)
+  let cities = [...cityMap.values()].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  if (!cities.some((c) => cityMatches(c, defaultCity)) && defaultCity) {
+    cities = [defaultCity, ...cities]
   }
-
-  if (!districts.length) {
-    districts = [...new Set(list.map((r) => r.district).filter(Boolean))]
+  if (!cities.length && defaultCity) {
+    cities = [defaultCity]
   }
-
-  if (!districts.length) {
-    districts = getDistrictsForCity(fallbackCity)
-  }
-
-  return [...options, ...districts.sort()]
+  return [
+    { value: '全部城市', label: '全部城市' },
+    ...cities.map((c) => ({ value: c, label: formatCityShort(c) }))
+  ]
 }
 
-export function filterReviews(list, { city, district, listType, filterByCity = false } = {}) {
+/** 区县筛选项：指定城市下已有评价数据的区县 */
+export function getDistrictOptionsForReviews(reviews, city) {
+  if (!city || city === '全部城市') return []
+
+  const list = (reviews || []).map(normalizeReview).filter(Boolean)
+  const districts = [
+    ...new Set(
+      list.filter((r) => cityMatches(r.city, city) && r.district).map((r) => r.district)
+    )
+  ]
+  if (!districts.length) return []
+  return [
+    { value: '全部区县', label: '全部区县' },
+    ...districts.sort((a, b) => a.localeCompare(b, 'zh-CN')).map((d) => ({ value: d, label: d }))
+  ]
+}
+
+function formatCityShort(city) {
+  return String(city || '').replace(/市$/, '') || '未知'
+}
+
+export function filterReviews(
+  list,
+  { city, district, districtScope, listType, filterByCity = false, hospitalName } = {}
+) {
   let result = (list || []).map(normalizeReview).filter(Boolean)
 
-  // 仅当明确开启时才按城市过滤（避免定位城市与发布城市不一致导致「看不到」）
   if (filterByCity && city) {
-    const cityFiltered = result.filter((r) => cityMatches(r.city, city))
-    if (cityFiltered.length > 0) {
-      result = cityFiltered
-    }
+    result = result.filter((r) => cityMatches(r.city, city))
   }
 
   if (district && district !== '全部区县') {
@@ -126,7 +154,12 @@ export function filterReviews(list, { city, district, listType, filterByCity = f
   }
 
   if (listType && listType !== 'all') {
-    result = result.filter((r) => r.list_type === listType)
+    result = result.filter((r) => listTypeMatches(r.list_type, listType))
+  }
+
+  if (hospitalName && String(hospitalName).trim()) {
+    const kw = String(hospitalName).trim().toLowerCase()
+    result = result.filter((r) => (r.hospital_name || '').toLowerCase().includes(kw))
   }
 
   return result.sort((a, b) => getReviewTimestamp(b) - getReviewTimestamp(a))

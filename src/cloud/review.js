@@ -5,7 +5,7 @@ import { getDb, COLLECTIONS } from '@/cloud/db.js'
 import { cloudGet } from '@/cloud/query.js'
 import { cloudErrorToast, parseCloudError, formatDbPermissionHint } from '@/cloud/errors.js'
 import { ADMIN_OPENID, REVIEW_PAGE_SIZE } from '@/utils/reviewConstants.js'
-import { filterReviews, normalizeReview, getReviewTimestamp } from '@/utils/reviewFilter.js'
+import { filterReviews, normalizeReview, getReviewTimestamp, REVIEW_SORT_FIELD } from '@/utils/reviewFilter.js'
 import { cacheOpenId, getCachedOpenId } from '@/utils/openid.js'
 
 export { ADMIN_OPENID, REVIEW_PAGE_SIZE }
@@ -15,22 +15,32 @@ const PING_CONTENT = '__review_write_ping__'
 function buildReviewDoc(data) {
   const now = Date.now()
   const hasReceipt = !!data.receiptFileId
+  const listType = data.listType
   return {
-    hospital_name: data.hospitalName,
-    list_type: data.listType,
+    hospitalName: data.hospitalName,
+    type: listType,
     city: data.city || '',
     district: data.district || '',
-    insurance_type: data.insuranceType || '',
+    insuranceType: data.insuranceType || '',
     tags: data.tags || [],
     content: data.content,
     hasReceipt,
     receiptImg: data.receiptFileId || '',
+    createTime: now,
+    // 兼容旧下划线字段
+    hospital_name: data.hospitalName,
+    list_type: listType,
+    insurance_type: data.insuranceType || '',
     create_time: now
   }
 }
 
 export function isPingRecord(doc) {
-  return doc?.content === PING_CONTENT || doc?.hospital_name === '__ping__'
+  return (
+    doc?.content === PING_CONTENT ||
+    doc?.hospital_name === '__ping__' ||
+    doc?.hospitalName === '__ping__'
+  )
 }
 
 /** 获取当前登录用户 OpenID（pets → 本地缓存，不依赖云函数） */
@@ -93,14 +103,16 @@ function normalizeReviewList(rawList) {
 }
 
 /**
- * 分页拉取评价（按 create_time 降序游标，避免 skip 在大数据量下变慢）
- * @param {{ limit?: number, beforeTime?: number|null, withCount?: boolean }} options
+ * 分页拉取评价（全量分页，筛选在前端进行，避免 count / hasMore 与筛选不一致）
  */
-export async function fetchReviewsPage({ limit = REVIEW_PAGE_SIZE, beforeTime = null, withCount = false } = {}) {
+export async function fetchReviewsPage({
+  limit = REVIEW_PAGE_SIZE,
+  skip = 0,
+  withCount = false
+} = {}) {
   try {
     const db = await getDb()
     const coll = db.collection(COLLECTIONS.REVIEWS)
-    const _ = db.command
 
     let dbCount
     if (withCount) {
@@ -108,41 +120,35 @@ export async function fetchReviewsPage({ limit = REVIEW_PAGE_SIZE, beforeTime = 
       dbCount = countRes?.total ?? 0
     }
 
-    const runQuery = () => {
-      if (beforeTime != null && beforeTime > 0) {
-        return coll
-          .where({ create_time: _.lt(beforeTime) })
-          .orderBy('create_time', 'desc')
-          .limit(limit)
-          .get()
-      }
-      return coll.orderBy('create_time', 'desc').limit(limit).get()
+    const runQuery = (sortField) =>
+      coll.orderBy(sortField, 'desc').skip(skip).limit(limit).get()
+
+    let raw
+    try {
+      raw = await cloudGet(() => runQuery(REVIEW_SORT_FIELD), { label: 'reviews-page', retries: 2 })
+    } catch (sortErr) {
+      console.warn('[review] orderBy createTime failed, fallback create_time:', sortErr)
+      raw = await cloudGet(() => runQuery('create_time'), { label: 'reviews-page-fallback', retries: 1 })
     }
 
-    const raw = await cloudGet(runQuery, { label: 'reviews-page', retries: 2 })
     const list = normalizeReviewList(raw)
-
-    if (typeof dbCount === 'number' && dbCount > 0 && !beforeTime && list.length === 0) {
-      return {
-        list: [],
-        hasMore: false,
-        dbCount,
-        error:
-          `云库有 ${dbCount} 条记录但读不到。请检查 hospital_reviews 权限 read 是否为 true，` +
-          `以及环境 ID 是否为 ${CLOUD_ENV_ID}`
-      }
-    }
+    const rawCount = raw.length
+    const hasMore =
+      typeof dbCount === 'number'
+        ? skip + rawCount < dbCount
+        : rawCount >= limit
 
     return {
       list,
-      hasMore: raw.length >= limit,
+      hasMore,
       dbCount,
+      rawCount,
       error: ''
     }
   } catch (err) {
     console.error('[review] fetchReviewsPage failed:', err)
     const info = cloudErrorToast(err, '加载评价失败')
-    return { list: [], hasMore: false, dbCount: 0, error: info }
+    return { list: [], hasMore: false, dbCount: 0, rawCount: 0, error: info }
   }
 }
 
@@ -289,17 +295,23 @@ export async function publishReview(data) {
 
 function buildReviewUpdatePayload(data) {
   const hasReceipt = !!data.receiptFileId
+  const listType = data.listType
+  const now = Date.now()
   return {
-    hospital_name: data.hospitalName,
-    list_type: data.listType,
+    hospitalName: data.hospitalName,
+    type: listType,
     city: data.city || '',
     district: data.district || '',
-    insurance_type: data.insuranceType || '',
+    insuranceType: data.insuranceType || '',
     tags: data.tags || [],
     content: data.content,
     hasReceipt,
     receiptImg: data.receiptFileId || '',
-    update_time: Date.now()
+    updateTime: now,
+    hospital_name: data.hospitalName,
+    list_type: listType,
+    insurance_type: data.insuranceType || '',
+    update_time: now
   }
 }
 
@@ -423,10 +435,18 @@ export async function adminDeleteReview(reviewId, { verifiedAdmin = false } = {}
   return true
 }
 
-export async function resolveLocationCityDistrict() {
+export async function resolveLocationCityDistrict(options = {}) {
   const { resolveCityDistrictByLocation } = await import('@/utils/location.js')
-  const geo = await resolveCityDistrictByLocation()
-  return { city: geo.city || '', district: geo.district || '' }
+  const geo = await resolveCityDistrictByLocation(options)
+  return {
+    city: geo.city || '',
+    district: geo.district || '',
+    located: !!geo.located,
+    fromCache: !!geo.fromCache,
+    errorCode: geo.errorCode,
+    errorMessage: geo.errorMessage || '',
+    needOpenSetting: !!geo.needOpenSetting
+  }
 }
 
 export function handleReviewError(err, fallback = '操作失败') {

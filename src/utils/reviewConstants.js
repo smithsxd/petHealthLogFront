@@ -44,8 +44,65 @@ export const REVIEW_PAGE_SIZE = 20
 export const DEFAULT_CITY = '北京市'
 export const DEFAULT_DISTRICT = '海淀区'
 
+/** 统一榜单类型（兼容导入数据：红榜/黑榜/中文等） */
+export function normalizeListType(raw) {
+  const s = String(raw ?? '').trim().toLowerCase()
+  if (!s) return 'red'
+  if (s === 'red' || s.includes('红') || s === 'good') return 'red'
+  if (s === 'black' || s.includes('黑') || s === 'bad') return 'black'
+  return 'red'
+}
+
+export function listTypeMatches(recordType, filterType) {
+  if (!filterType || filterType === 'all') return true
+  return normalizeListType(recordType) === normalizeListType(filterType)
+}
+
+/** 云数据库 where 条件（榜单，兼容 type / list_type） */
+export function buildListTypeDbCondition(_, listType) {
+  if (!listType || listType === 'all') return null
+  const t = normalizeListType(listType)
+  if (t === 'red') {
+    return _.or([
+      { type: 'red' },
+      { list_type: 'red' },
+      { list_type: '红榜' },
+      { list_type: '宠友红榜' }
+    ])
+  }
+  return _.or([
+    { type: 'black' },
+    { list_type: 'black' },
+    { list_type: '黑榜' },
+    { list_type: '商家黑榜' }
+  ])
+}
+
+/** 云数据库 where 条件（城市，兼容「北京」/「北京市」） */
+export function buildCityDbCondition(_, city) {
+  if (!city) return null
+  const base = String(city).replace(/市$/, '').trim()
+  return _.or([{ city: `${base}市` }, { city: base }, { city }])
+}
+
+export function formatLocateError(code, message = '') {
+  const c = Number(code)
+  if (c === 121) {
+    return '逆地址解析配额为 0 或已用尽。请在腾讯位置服务控制台 → 配额管理 → 账户额度，为「逆地址解析」分配额度后重试'
+  }
+  if (c === 110) return '地图 Key 未授权小程序，请检查腾讯位置服务 Key 是否绑定 AppID'
+  if (c === 190 || c === 311) return '地图 Key 无效，请检查 config.js 中的 TENCENT_MAP_KEY'
+  if (c === 199) return '地图 Key 未开启 WebServiceAPI'
+  if (message) return message
+  return '逆地理编码失败，请手动选择城市'
+}
+
 export function listTypeLabel(type) {
-  return type === 'red' ? '宠友红榜' : '商家黑榜'
+  return normalizeListType(type) === 'red' ? '宠友红榜' : '商家黑榜'
+}
+
+export function listTypeIcon(type) {
+  return normalizeListType(type) === 'red' ? '🟢' : '⚫'
 }
 
 export function formatReviewTime(ts) {

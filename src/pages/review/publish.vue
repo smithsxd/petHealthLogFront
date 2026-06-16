@@ -7,12 +7,19 @@
       <view class="loc-bar card">
         <text class="loc-icon">📍</text>
         <view class="loc-info">
-          <text class="loc-text" v-if="locating">定位中...</text>
-          <text class="loc-text" v-else-if="locFailed">定位不可用，请手动选择</text>
+          <text class="loc-text" v-if="locating">定位中，请稍候…</text>
+          <text class="loc-text loc-text--ok" v-else-if="locStatus === 'ok'">✅ 已定位：{{ city }} {{ district }}</text>
+          <text class="loc-text loc-text--fail" v-else-if="locFailed">⚠️ 定位失败，请手动选择城市区县</text>
           <text class="loc-text" v-else>{{ city }} {{ district }}</text>
-          <text class="loc-sub" v-if="locFailed">开发者工具通常无法定位，手动选择即可</text>
+          <text class="loc-sub" v-if="locating">需授权位置权限；开发者工具可能无法定位</text>
+          <text class="loc-sub" v-else-if="locStatus === 'ok' && locateFromCache">使用缓存位置，可点「重新定位」更新</text>
+          <text class="loc-sub loc-sub--fail" v-else-if="locFailed && locateErrorHint">{{ locateErrorHint }}</text>
+          <text class="loc-sub" v-else-if="locFailed">已保留当前选择，不影响发布</text>
         </view>
-        <text class="loc-retry press-soft" @click="tryLocate">重新定位</text>
+        <text class="loc-retry press-soft" @click="tryLocate(true)">重新定位</text>
+      </view>
+      <view v-if="locFailed && needOpenSetting" class="loc-settings press-soft" @click="goOpenLocationSettings">
+        去设置开启位置权限
       </view>
       <view class="form-row loc-pickers">
         <view class="form-item">
@@ -146,7 +153,7 @@ import { ref, computed, getCurrentInstance } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import AppNav from '@/components/AppNav/index.vue'
 import { themeClass } from '@/store/theme.js'
-import { INSURANCE_TYPES, RED_TAGS, BLACK_TAGS, getCityList, getDistrictsForCity, DEFAULT_CITY, DEFAULT_DISTRICT, ADMIN_OPENID } from '@/utils/reviewConstants.js'
+import { INSURANCE_TYPES, RED_TAGS, BLACK_TAGS, getCityList, getDistrictsForCity, DEFAULT_CITY, DEFAULT_DISTRICT, ADMIN_OPENID, formatLocateError } from '@/utils/reviewConstants.js'
 import { compressReceiptImage, CANVAS_ID } from '@/utils/receiptCompress.js'
 import {
   resolveLocationCityDistrict,
@@ -157,6 +164,7 @@ import {
   fetchCurrentOpenId,
   handleReviewError
 } from '@/cloud/review.js'
+import { openLocationSettings } from '@/utils/location.js'
 
 const instance = getCurrentInstance()
 
@@ -168,12 +176,16 @@ const pageTitle = computed(() => (isEditMode.value ? '编辑评价' : '发布评
 
 const city = ref('')
 const district = ref('')
-const locating = ref(true)
+const locating = ref(false)
 const locFailed = ref(false)
-const cityList = getCityList()
-const cityIndex = ref(Math.max(0, cityList.indexOf(DEFAULT_CITY)))
-const districtList = ref(getDistrictsForCity(DEFAULT_CITY))
-const districtIndex = ref(Math.max(0, getDistrictsForCity(DEFAULT_CITY).indexOf(DEFAULT_DISTRICT)))
+const locStatus = ref('idle')
+const locateFromCache = ref(false)
+const locateErrorHint = ref('')
+const needOpenSetting = ref(false)
+const cityList = ref(getCityList())
+const cityIndex = ref(0)
+const districtList = ref([])
+const districtIndex = ref(0)
 const listType = ref('red')
 const hospitalName = ref('')
 const insuranceType = ref(INSURANCE_TYPES[0])
@@ -246,11 +258,95 @@ async function chooseReceipt() {
 function onCityPick(e) {
   const idx = Number(e.detail.value)
   cityIndex.value = idx
-  city.value = cityList[idx] || ''
+  city.value = cityList.value[idx] || ''
   districtList.value = getDistrictsForCity(city.value)
   districtIndex.value = 0
   district.value = districtList.value[0] || ''
   locFailed.value = false
+  locStatus.value = 'idle'
+}
+
+function ensureCityInList(cityName) {
+  if (!cityName) return
+  if (!cityList.value.includes(cityName)) {
+    cityList.value = [...cityList.value, cityName].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  }
+  cityIndex.value = Math.max(0, cityList.value.indexOf(cityName))
+}
+
+function ensureDistrictInList(cityName, districtName) {
+  const base = getDistrictsForCity(cityName)
+  const merged = [...base]
+  if (districtName && !merged.includes(districtName)) {
+    merged.push(districtName)
+  }
+  districtList.value = merged
+  if (districtName) {
+    districtIndex.value = Math.max(0, merged.indexOf(districtName))
+  }
+}
+
+function applyDefaultLocation() {
+  city.value = DEFAULT_CITY
+  district.value = DEFAULT_DISTRICT
+  ensureCityInList(DEFAULT_CITY)
+  ensureDistrictInList(DEFAULT_CITY, DEFAULT_DISTRICT)
+}
+
+const LOCATE_OVERALL_MS = 12000
+
+async function tryLocate(forceRefresh = false) {
+  locating.value = true
+  locFailed.value = false
+  locStatus.value = 'locating'
+  locateFromCache.value = false
+  locateErrorHint.value = ''
+  needOpenSetting.value = false
+  try {
+    const geo = await Promise.race([
+      resolveLocationCityDistrict({ force: forceRefresh }),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('定位超时（12秒）')), LOCATE_OVERALL_MS)
+      })
+    ])
+    if (geo?.city) {
+      city.value = geo.city
+      district.value = geo.district || ''
+      ensureCityInList(geo.city)
+      ensureDistrictInList(geo.city, geo.district)
+      if (!district.value && districtList.value.length) {
+        district.value = districtList.value[0]
+        districtIndex.value = 0
+      }
+      locStatus.value = 'ok'
+      locateFromCache.value = !!geo.fromCache
+      locateErrorHint.value = ''
+      locFailed.value = false
+      needOpenSetting.value = false
+    } else {
+      locFailed.value = true
+      locStatus.value = 'fail'
+      locateErrorHint.value = geo?.errorMessage || formatLocateError(geo?.errorCode) || '定位失败，请手动选择'
+      needOpenSetting.value = !!geo?.needOpenSetting
+    }
+  } catch (err) {
+    console.warn('[publish] locate failed:', err)
+    locFailed.value = true
+    locStatus.value = 'fail'
+    locateErrorHint.value = err?.message || '定位失败，请手动选择'
+    needOpenSetting.value = !!err?.needOpenSetting
+  } finally {
+    locating.value = false
+  }
+}
+
+async function goOpenLocationSettings() {
+  const ok = await openLocationSettings()
+  if (ok) {
+    tryLocate(true)
+  } else {
+    uni.showToast({ title: '请在设置中允许位置', icon: 'none' })
+  }
 }
 
 function onDistrictPick(e) {
@@ -259,49 +355,22 @@ function onDistrictPick(e) {
   district.value = districtList.value[idx] || ''
 }
 
-function applyDefaultLocation() {
-  city.value = DEFAULT_CITY
-  district.value = DEFAULT_DISTRICT
-  cityIndex.value = Math.max(0, cityList.indexOf(DEFAULT_CITY))
-  districtList.value = getDistrictsForCity(DEFAULT_CITY)
-  districtIndex.value = Math.max(0, districtList.value.indexOf(DEFAULT_DISTRICT))
-}
-
-async function tryLocate() {
-  locating.value = true
-  locFailed.value = false
-  const geo = await resolveLocationCityDistrict()
-  locating.value = false
-  if (geo.city) {
-    city.value = geo.city
-    district.value = geo.district || ''
-    cityIndex.value = Math.max(0, cityList.indexOf(geo.city))
-    districtList.value = getDistrictsForCity(geo.city)
-    if (geo.district) {
-      districtIndex.value = Math.max(0, districtList.value.indexOf(geo.district))
-    }
-  } else {
-    locFailed.value = true
-    if (!city.value) applyDefaultLocation()
-  }
-}
-
 function applyReviewDoc(doc) {
-  hospitalName.value = doc.hospital_name || ''
-  listType.value = doc.list_type || 'red'
+  hospitalName.value = doc.hospital_name || doc.hospitalName || ''
+  listType.value = doc.list_type || doc.type || 'red'
   city.value = doc.city || DEFAULT_CITY
   district.value = doc.district || DEFAULT_DISTRICT
-  insuranceType.value = doc.insurance_type || INSURANCE_TYPES[0]
+  insuranceType.value = doc.insurance_type || doc.insuranceType || INSURANCE_TYPES[0]
   selectedTags.value = Array.isArray(doc.tags) ? [...doc.tags] : []
   content.value = doc.content || ''
-  cityIndex.value = Math.max(0, cityList.indexOf(city.value))
-  districtList.value = getDistrictsForCity(city.value)
-  districtIndex.value = Math.max(0, districtList.value.indexOf(district.value))
+  ensureCityInList(city.value)
+  ensureDistrictInList(city.value, district.value)
   existingReceiptCloudId.value = doc.receiptImg || ''
   receiptPreview.value = doc.receiptImg || ''
   receiptLocalPath.value = ''
   locating.value = false
   locFailed.value = false
+  locStatus.value = 'ok'
 }
 
 async function loadForEdit(id) {
@@ -423,8 +492,11 @@ onLoad((options) => {
     loadForEdit(options.id)
     return
   }
-  applyDefaultLocation()
-  tryLocate()
+  // 不预填北京，等定位成功后再自动填写；失败则让用户手动选
+  city.value = ''
+  district.value = ''
+  districtList.value = []
+  tryLocate(false)
 })
 </script>
 
@@ -463,11 +535,34 @@ onLoad((options) => {
   color: var(--text-4);
 }
 
+.loc-text--ok {
+  color: var(--success, #4ade80);
+}
+
+.loc-text--fail {
+  color: var(--warning, #fbbf24);
+}
+
+.loc-sub--fail {
+  color: var(--warning, #fbbf24);
+}
+
 .loc-retry {
   font-size: 24rpx;
   color: var(--primary);
   flex-shrink: 0;
   padding: 8rpx 0;
+}
+
+.loc-settings {
+  margin: 12rpx 28rpx 0;
+  padding: 16rpx 24rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--primary);
+  background: var(--primary-light, rgba(88, 193, 108, 0.12));
+  border-radius: 16rpx;
+  border: 1rpx solid var(--primary);
 }
 
 .loc-pickers {

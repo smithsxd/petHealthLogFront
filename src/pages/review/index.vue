@@ -4,24 +4,65 @@
       <AppNav title="就医指南" show-back back-to-index :show-theme-toggle="true" action-text="发布" @action="goPublish" />
     </view>
 
-    <view class="review-page__body" :style="bodyStyle">
-      <view v-if="currentCity" class="loc-hint">
-        <text>📍 定位城市：{{ currentCity }}</text>
-        <text class="loc-hint__sub"> · 下方可点区县筛选，默认「全部区县」看全国</text>
+    <scroll-view
+      scroll-y
+      class="review-page__scroll"
+      :style="scrollStyle"
+      :lower-threshold="120"
+      @scrolltolower="loadMore"
+    >
+    <view class="review-page__body" :style="bodyPaddingStyle">
+      <view v-if="locatedCity" class="loc-bar">
+        <view class="loc-hint">
+          <text>📍 定位：{{ locatedCity }}<text v-if="locatedDistrict"> · {{ locatedDistrict }}</text></text>
+          <text class="loc-hint__sub">已为您选中定位城市，可下方切换其他城市</text>
+        </view>
+      </view>
+      <view v-else class="loc-bar loc-bar--default">
+        <text class="loc-hint__sub">未定位，默认展示 {{ formatCityLabel(filterCity) }} 有数据的区县</text>
       </view>
 
-      <view class="filter-bar">
+      <view v-if="showCityFilter" class="filter-bar filter-bar--city">
+        <text class="filter-bar__label">城市</text>
+        <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
+          <view
+            v-for="c in cityOptions"
+            :key="c.value"
+            class="filter-chip press-soft"
+            :class="{ active: filterCity === c.value }"
+            @click="onCityChange(c.value)"
+          >
+            {{ c.label }}
+          </view>
+        </scroll-view>
+      </view>
+
+      <view v-if="showDistrictFilter" class="filter-bar">
+        <text class="filter-bar__label">区县</text>
         <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
           <view
             v-for="d in districtOptions"
-            :key="d"
+            :key="d.value"
             class="filter-chip press-soft"
-            :class="{ active: currentDistrict === d }"
-            @click="onDistrictChange(d)"
+            :class="{ active: currentDistrict === d.value }"
+            @click="onDistrictChange(d.value)"
           >
-            {{ d }}
+            {{ d.label }}
           </view>
         </scroll-view>
+      </view>
+
+      <view class="search-bar">
+        <text class="search-bar__icon">🔍</text>
+        <input
+          class="search-bar__input"
+          v-model="hospitalKeyword"
+          type="text"
+          placeholder="搜索医院名称"
+          confirm-type="search"
+          @confirm="onHospitalSearch"
+        />
+        <view v-if="hospitalKeyword" class="search-bar__clear press-soft" @click="clearHospitalSearch">×</view>
       </view>
 
       <view v-if="isAdmin" class="admin-bar">
@@ -31,10 +72,9 @@
       </view>
 
       <view v-if="!loading && (allReviews.length || dbCount > 0)" class="list-meta">
-        <text>共 {{ dbCount || allReviews.length }} 条</text>
+        <text>库内 {{ dbCount || allReviews.length }} 条</text>
         <text v-if="dbCount > allReviews.length"> · 已加载 {{ allReviews.length }}</text>
-        <text v-if="filteredList.length !== allReviews.length"> · 当前筛选 {{ filteredList.length }} 条</text>
-        <text v-if="filteredList.length !== allReviews.length" class="list-meta__hint">（可点「全部区县」查看全部）</text>
+        <text v-if="showFilteredCount"> · 当前展示 {{ filteredList.length }}</text>
       </view>
 
       <view class="tab-bar">
@@ -68,11 +108,11 @@
           :title="allReviews.length ? '当前筛选无结果' : '暂无评价'"
           :desc="emptyFilterHint"
         />
-        <view v-if="allReviews.length && currentDistrict !== '全部区县'" class="filter-reset press-soft" @click="resetFilters">
-          查看全部区县（已加载 {{ allReviews.length }} 条）
+        <view v-if="hasActiveFilter" class="filter-reset press-soft" @click="resetFilters">
+          清除筛选条件
         </view>
-        <view v-if="!filteredList.length && hasMore && allReviews.length" class="filter-reset press-soft" @click="loadMore">
-          上拉或点此加载更多
+        <view v-if="!filteredList.length && hasMore" class="filter-reset press-soft" @click="loadMore">
+          当前筛选无结果，点击加载更多数据
         </view>
       </view>
 
@@ -81,9 +121,17 @@
           v-for="item in filteredList"
           :key="item._id"
           class="review-card press-soft"
-          :class="{ verified: item.hasReceipt }"
+          :class="{
+            verified: item.hasReceipt,
+            'review-card--red': item.list_type === 'red',
+            'review-card--black': item.list_type === 'black'
+          }"
           @click="openDetail(item)"
         >
+          <view class="list-type-badge" :class="item.list_type === 'red' ? 'is-red' : 'is-black'">
+            <text class="list-type-badge__icon">{{ listTypeIcon(item.list_type) }}</text>
+            <text class="list-type-badge__text">{{ item.list_type === 'red' ? '红榜' : '黑榜' }}</text>
+          </view>
           <view class="review-card__main">
             <view class="review-card__header">
               <text class="hospital-name">{{ item.hospital_name }}</text>
@@ -93,7 +141,7 @@
             </view>
 
             <view class="tag-row">
-              <text class="tag tag-loc">{{ item.district }} · {{ item.insurance_type }}</text>
+              <text class="tag tag-loc">{{ item.city ? item.city + ' · ' : '' }}{{ item.district }} · {{ item.insurance_type }}</text>
               <text v-for="t in item.tags" :key="t" class="tag">{{ t }}</text>
             </view>
 
@@ -120,12 +168,16 @@
           </view>
         </view>
 
-        <view v-if="hasMore || loadingMore" class="load-more">
-          <text v-if="loadingMore">加载中...</text>
-          <text v-else-if="hasMore">上拉加载更多（{{ allReviews.length }} / {{ dbCount || '?' }}）</text>
+        <view v-if="loadingMore" class="load-more">
+          <text>加载中...</text>
+        </view>
+        <view v-else-if="hasMore" class="load-more">
+          <view class="load-more__btn press-soft" @click="loadMore">
+            加载更多（已加载 {{ allReviews.length }} / 库内 {{ dbCount || '?' }}）
+          </view>
         </view>
         <view v-else-if="allReviews.length" class="load-more load-more--done">
-          <text>— 已加载全部 —</text>
+          <text>— 已全部加载 {{ allReviews.length }} 条 —</text>
         </view>
       </view>
 
@@ -134,6 +186,7 @@
         <text class="appeal-text">商户申诉：若认为相关评价不实，请将加盖公章的营业执照及反驳证据发送至官方邮箱：1361489750@qq.com，平台将在 3 个工作日内核实处理。</text>
       </view>
     </view>
+    </scroll-view>
 
     <view class="review-page__footer">
       <AppTabBar current="review" embedded />
@@ -156,7 +209,7 @@
 
         <view class="detail-meta">
           <text class="detail-meta__badge" :class="detailItem?.list_type === 'red' ? 'is-red' : 'is-black'">
-            {{ listTypeLabel(detailItem?.list_type) }}
+            {{ listTypeIcon(detailItem?.list_type) }} {{ listTypeLabel(detailItem?.list_type) }}
           </text>
           <text class="detail-meta__text">{{ detailItem?.city }} {{ detailItem?.district }}</text>
         </view>
@@ -197,13 +250,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { onShow, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import AppNav from '@/components/AppNav/index.vue'
 import AppTabBar from '@/components/AppTabBar/index.vue'
 import EmptyState from '@/components/EmptyState/index.vue'
 import { themeClass } from '@/store/theme.js'
-import { ADMIN_OPENID, listTypeLabel, formatReviewTime, DEFAULT_CITY, REVIEW_PAGE_SIZE } from '@/utils/reviewConstants.js'
+import { ADMIN_OPENID, listTypeLabel, listTypeIcon, formatReviewTime, REVIEW_PAGE_SIZE, DEFAULT_CITY } from '@/utils/reviewConstants.js'
 import {
   fetchReviewsPage,
   fetchReviewById,
@@ -214,14 +267,22 @@ import {
   handleReviewError,
   mergeReviewLists
 } from '@/cloud/review.js'
-import { filterReviews, normalizeReview, getDistrictOptionsForReviews, getReviewTimestamp } from '@/utils/reviewFilter.js'
+import {
+  filterReviews,
+  normalizeReview,
+  getDistrictOptionsForReviews,
+  getCityOptionsForReviews
+} from '@/utils/reviewFilter.js'
 
 const loading = ref(true)
 const allReviews = ref([])
 const loadError = ref('')
-const currentCity = ref('')
+const locatedCity = ref('')
+const locatedDistrict = ref('')
+const filterCity = ref(DEFAULT_CITY)
 const currentDistrict = ref('全部区县')
 const currentListType = ref('all')
+const hospitalKeyword = ref('')
 const currentOpenId = ref('')
 const detailVisible = ref(false)
 const detailItem = ref(null)
@@ -231,8 +292,9 @@ const writeError = ref('')
 const dbCount = ref(0)
 const hasMore = ref(true)
 const loadingMore = ref(false)
-const cursorBeforeTime = ref(null)
-const bodyStyle = ref(calcBodyStyle())
+const pageSkip = ref(0)
+const scrollStyle = ref(calcScrollStyle())
+const bodyPaddingStyle = ref(calcBodyPaddingStyle())
 const lastPublishedAt = ref(0)
 
 const listTabs = [
@@ -248,26 +310,86 @@ const adminOpenIdHint = computed(() => {
   return `${currentOpenId.value.slice(0, 12)}...`
 })
 
+const cityOptions = computed(() =>
+  getCityOptionsForReviews(allReviews.value, { defaultCity: DEFAULT_CITY })
+)
+
 const districtOptions = computed(() =>
-  getDistrictOptionsForReviews(allReviews.value, currentCity.value, DEFAULT_CITY)
+  getDistrictOptionsForReviews(allReviews.value, filterCity.value)
+)
+
+const showCityFilter = computed(() => cityOptions.value.length > 0)
+
+const showDistrictFilter = computed(
+  () => filterCity.value && filterCity.value !== '全部城市' && districtOptions.value.length > 1
 )
 
 const filteredList = computed(() =>
   filterReviews(allReviews.value, {
+    city: filterCity.value,
+    filterByCity: !!filterCity.value && filterCity.value !== '全部城市',
     district: currentDistrict.value,
-    listType: currentListType.value
+    listType: currentListType.value,
+    hospitalName: hospitalKeyword.value
   })
 )
+
+const showFilteredCount = computed(
+  () => filteredList.value.length !== allReviews.value.length || hasActiveFilter.value
+)
+
+const hasActiveFilter = computed(() => {
+  const baseCity = locatedCity.value || DEFAULT_CITY
+  return (
+    !!hospitalKeyword.value.trim() ||
+    currentDistrict.value !== '全部区县' ||
+    currentListType.value !== 'all' ||
+    filterCity.value === '全部城市' ||
+    (filterCity.value && filterCity.value !== baseCity)
+  )
+})
 
 const emptyFilterHint = computed(() => {
   if (!allReviews.value.length) return '成为第一个分享真实验单的宠友吧'
   const parts = []
-  if (currentDistrict.value !== '全部区县') parts.push(`区县「${currentDistrict.value}」`)
+  if (hospitalKeyword.value.trim()) parts.push(`医院「${hospitalKeyword.value.trim()}」`)
+  if (filterCity.value && filterCity.value !== '全部城市') {
+    parts.unshift(`城市「${formatCityLabel(filterCity.value)}」`)
+  }
+  if (currentDistrict.value !== '全部区县') {
+    const opt = districtOptions.value.find((o) => o.value === currentDistrict.value)
+    parts.push(`区县「${opt?.label || currentDistrict.value}」`)
+  }
   if (currentListType.value !== 'all') {
     parts.push(currentListType.value === 'red' ? '宠友红榜' : '商家黑榜')
   }
-  if (parts.length) return `已加载 ${allReviews.value.length} 条，当前筛选 ${parts.join(' + ')} 无匹配`
-  return '试试切换区县或榜单类型'
+  if (parts.length) return `当前 ${parts.join(' · ')} 无匹配，可清除筛选或加载更多`
+  return '试试切换区县、榜单或搜索医院名称'
+})
+
+watch(districtOptions, (opts) => {
+  const values = opts.map((o) => o.value)
+  if (values.length && !values.includes(currentDistrict.value)) {
+    currentDistrict.value = '全部区县'
+  }
+  if (!values.length) {
+    currentDistrict.value = '全部区县'
+  }
+})
+
+function formatCityLabel(city) {
+  if (!city || city === '全部城市') return '全部'
+  return String(city).replace(/市$/, '')
+}
+
+function onCityChange(city) {
+  if (filterCity.value === city) return
+  filterCity.value = city
+  currentDistrict.value = '全部区县'
+}
+
+watch(filterCity, () => {
+  currentDistrict.value = '全部区县'
 })
 
 function onDistrictChange(d) {
@@ -276,6 +398,14 @@ function onDistrictChange(d) {
 
 function onListTypeChange(key) {
   currentListType.value = key
+}
+
+function onHospitalSearch() {
+  // confirm-type="search" 触发，computed 已自动过滤
+}
+
+function clearHospitalSearch() {
+  hospitalKeyword.value = ''
 }
 
 function openDetail(item) {
@@ -288,36 +418,56 @@ function closeDetail() {
   detailItem.value = null
 }
 
-function calcBodyStyle() {
+function calcLayoutMetrics() {
   try {
     const sys = uni.getSystemInfoSync()
     const rate = sys.windowWidth / 750
     const navH = Math.round(88 * rate) + (sys.statusBarHeight || 0)
     const tabH = Math.round(100 * rate)
     const safeBottom = sys.safeAreaInsets?.bottom ?? 0
-    return {
-      paddingTop: `${navH}px`,
-      paddingBottom: `${tabH + safeBottom}px`,
-      minHeight: `${sys.windowHeight}px`,
-      boxSizing: 'border-box'
-    }
+    return { navH, tabH, safeBottom, windowH: sys.windowHeight }
   } catch (_) {
-    return { paddingTop: '88px', paddingBottom: '100px', minHeight: '100vh', boxSizing: 'border-box' }
+    return { navH: 88, tabH: 100, safeBottom: 0, windowH: 667 }
   }
 }
 
-async function initLocation() {
+function calcScrollStyle() {
+  const { navH, tabH, safeBottom, windowH } = calcLayoutMetrics()
+  return { height: `${windowH - navH}px`, marginTop: `${navH}px` }
+}
+
+function calcBodyPaddingStyle() {
+  const { tabH, safeBottom } = calcLayoutMetrics()
+  return {
+    paddingBottom: `${tabH + safeBottom + 16}px`,
+    boxSizing: 'border-box'
+  }
+}
+
+async function initLocation({ force = false } = {}) {
   try {
-    const geo = await resolveLocationCityDistrict()
-    currentCity.value = geo.city || ''
+    const geo = await resolveLocationCityDistrict({ force })
+    if (geo.city) {
+      locatedCity.value = geo.city
+      locatedDistrict.value = geo.district || ''
+      filterCity.value = geo.city
+    } else {
+      locatedCity.value = ''
+      locatedDistrict.value = ''
+      if (!locatedCity.value) {
+        filterCity.value = DEFAULT_CITY
+      }
+    }
   } catch (err) {
     console.warn('[review] initLocation failed:', err)
-    currentCity.value = ''
+    locatedCity.value = ''
+    locatedDistrict.value = ''
+    filterCity.value = DEFAULT_CITY
   }
 }
 
 function startLocationUpdate() {
-  initLocation().catch((err) => {
+  initLocation({ force: false }).catch((err) => {
     console.warn('[review] background location failed:', err)
   })
 }
@@ -343,30 +493,30 @@ async function fetchReviews({ silent = false, reset = true } = {}) {
   }
   if (reset) {
     hasMore.value = true
-    cursorBeforeTime.value = null
+    pageSkip.value = 0
   }
   const prevList = allReviews.value
   try {
-    const ping = await pingCloudReviews()
-    writeBlocked.value = !ping.writeOk
-    writeError.value = ping.writeError || ''
     if (reset) {
+      const ping = await pingCloudReviews()
+      writeBlocked.value = !ping.writeOk
+      writeError.value = ping.writeError || ''
       dbCount.value = ping.count || 0
-    }
 
-    if (!ping.ok) {
-      if (!silent) {
-        loadError.value = ping.error
-        allReviews.value = []
-        hasMore.value = false
-        uni.showToast({ title: (ping.error || '云数据库不可用').slice(0, 36), icon: 'none', duration: 4000 })
+      if (!ping.ok) {
+        if (!silent) {
+          loadError.value = ping.error
+          allReviews.value = []
+          hasMore.value = false
+          uni.showToast({ title: (ping.error || '云数据库不可用').slice(0, 36), icon: 'none', duration: 4000 })
+        }
+        return
       }
-      return
     }
 
-    const { list, error, dbCount: fetchedCount, hasMore: more } = await fetchReviewsPage({
+    const { list, error, dbCount: fetchedCount, hasMore: more, rawCount } = await fetchReviewsPage({
       limit: REVIEW_PAGE_SIZE,
-      beforeTime: reset ? null : cursorBeforeTime.value,
+      skip: pageSkip.value,
       withCount: reset
     })
     if (typeof fetchedCount === 'number') {
@@ -379,18 +529,20 @@ async function fetchReviews({ silent = false, reset = true } = {}) {
       allReviews.value = mergeReviewLists(list, allReviews.value)
     }
 
-    hasMore.value = more
-    if (list.length) {
-      const last = list[list.length - 1]
-      cursorBeforeTime.value = getReviewTimestamp(last) || last.create_time || null
-    } else if (!reset) {
+    pageSkip.value += rawCount || 0
+    if (!rawCount) {
       hasMore.value = false
+    } else {
+      hasMore.value =
+        typeof dbCount.value === 'number' && dbCount.value > 0
+          ? pageSkip.value < dbCount.value
+          : more
     }
 
     if (!silent) {
       loadError.value = error
     }
-    console.log('[review] ui list:', allReviews.value.length, 'dbCount:', dbCount.value, 'hasMore:', hasMore.value)
+    console.log('[review] ui list:', allReviews.value.length, 'dbCount:', dbCount.value, 'skip:', pageSkip.value, 'hasMore:', hasMore.value)
     if (!silent && error && !allReviews.value.length) {
       uni.showToast({ title: error.slice(0, 30), icon: 'none', duration: 3000 })
     }
@@ -487,8 +639,10 @@ onShow(async () => {
 })
 
 function resetFilters() {
+  filterCity.value = locatedCity.value || DEFAULT_CITY
   currentDistrict.value = '全部区县'
   currentListType.value = 'all'
+  hospitalKeyword.value = ''
 }
 
 async function onReviewPublished(payload) {
@@ -529,10 +683,6 @@ onUnmounted(() => {
   uni.$off('review-updated', onReviewUpdated)
 })
 
-onReachBottom(() => {
-  loadMore()
-})
-
 onPullDownRefresh(async () => {
   try {
     await fetchReviews({ reset: true })
@@ -555,6 +705,11 @@ onPullDownRefresh(async () => {
   z-index: 999;
 }
 
+.review-page__scroll {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .review-page__body {
   width: 100%;
 }
@@ -567,18 +722,101 @@ onPullDownRefresh(async () => {
   z-index: 999;
 }
 
+.search-bar {
+  display: flex;
+  align-items: center;
+  margin: 8rpx 28rpx 12rpx;
+  padding: 0 24rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: var(--bg-card, #fff);
+  border: 1rpx solid var(--border, #e8e8e8);
+}
+
+.search-bar__icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.search-bar__input {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-1);
+  height: 72rpx;
+}
+
+.search-bar__clear {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: 36rpx;
+  color: var(--text-4);
+  flex-shrink: 0;
+}
+
 .filter-bar {
-  padding: 16rpx 0 8rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 12rpx 28rpx 8rpx;
+}
+
+.filter-bar__label {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: var(--text-3);
+  width: 56rpx;
+}
+
+.filter-bar .filter-scroll {
+  flex: 1;
+  min-width: 0;
+}
+
+.loc-bar--default {
+  padding: 8rpx 28rpx;
+}
+
+.loc-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 0 28rpx 8rpx;
 }
 
 .loc-hint {
-  padding: 0 28rpx 8rpx;
+  flex: 1;
+  min-width: 0;
   font-size: 22rpx;
   color: var(--text-3);
 }
 
+.loc-toggle {
+  flex-shrink: 0;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  color: var(--primary);
+  background: var(--primary-light, rgba(88, 193, 108, 0.12));
+  border: 1rpx solid var(--primary);
+  white-space: nowrap;
+}
+
+.loc-toggle.active {
+  color: var(--text-2);
+  background: var(--bg-card, #fff);
+  border-color: var(--border, #e8e8e8);
+}
+
 .loc-hint__sub {
+  display: block;
+  margin-top: 4rpx;
   color: var(--text-4);
+  font-size: 20rpx;
+  line-height: 1.4;
 }
 
 .admin-bar {
@@ -667,6 +905,16 @@ onPullDownRefresh(async () => {
 
 .load-more--done {
   color: var(--text-muted, #bbb);
+}
+
+.load-more__btn {
+  display: inline-block;
+  padding: 16rpx 40rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  color: var(--primary);
+  background: var(--primary-light, rgba(88, 193, 108, 0.12));
+  border: 1rpx solid var(--primary);
 }
 
 .tab-item {
@@ -758,17 +1006,53 @@ onPullDownRefresh(async () => {
 .review-card {
   position: relative;
   display: flex;
-  gap: 20rpx;
+  gap: 16rpx;
   padding: 28rpx;
   border-radius: 28rpx;
   background: var(--bg-card-gradient);
   border: 1rpx solid var(--border);
   box-shadow: var(--shadow-card);
 
+  &.review-card--red {
+    border-left: 8rpx solid rgba(74, 222, 128, 0.85);
+  }
+
+  &.review-card--black {
+    border-left: 8rpx solid rgba(120, 120, 130, 0.9);
+  }
+
   &.verified {
     border-color: rgba(74, 222, 128, 0.25);
     box-shadow: var(--shadow-card), 0 0 24rpx rgba(74, 222, 128, 0.08);
   }
+}
+
+.list-type-badge {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  gap: 4rpx;
+}
+
+.list-type-badge__icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.list-type-badge__text {
+  font-size: 18rpx;
+  font-weight: 600;
+}
+
+.list-type-badge.is-red .list-type-badge__text {
+  color: var(--success, #4ade80);
+}
+
+.list-type-badge.is-black .list-type-badge__text {
+  color: var(--text-3, #888);
 }
 
 .review-card__main {
