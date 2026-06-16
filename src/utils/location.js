@@ -10,9 +10,13 @@ import { formatLocateError } from '@/utils/reviewConstants.js'
 
 const LOCATE_TIMEOUT_MS = 10000
 const LOCATION_ASKED_KEY = 'pet_health_location_asked'
-const GEO_FAIL_COOLDOWN_MS = 15 * 60 * 1000
+const GEO_FAIL_DEBOUNCE_MS = 30 * 1000
 
 let _inflightGeo = null
+let _launchPrefetchPromise = null
+let _isFirstAppShow = true
+let _recentFailResult = null
+let _recentFailUntil = 0
 
 function normalizeCityName(city) {
   if (!city) return ''
@@ -50,7 +54,7 @@ export function getLocationAuthStatus() {
   })
 }
 
-/** 调起微信位置授权（首次会弹出系统授权框） */
+/** 查询定位授权；首次系统弹窗交给 getLocation 触发，生产版更稳定 */
 export function requestLocationPermission() {
   return new Promise((resolve) => {
     uni.getSetting({
@@ -64,11 +68,7 @@ export function requestLocationPermission() {
           resolve({ granted: false, denied: true })
           return
         }
-        uni.authorize({
-          scope: 'scope.userLocation',
-          success: () => resolve({ granted: true }),
-          fail: () => resolve({ granted: false, denied: false })
-        })
+        resolve({ granted: true, needsSystemPrompt: true })
       },
       fail: () => resolve({ granted: false })
     })
@@ -95,7 +95,7 @@ export function promptLocationPermissionOnLaunch() {
         success: (res) => {
           uni.setStorageSync(LOCATION_ASKED_KEY, true)
           if (res.confirm) {
-            requestLocationPermission().then(resolve)
+            resolve({ granted: true, needsSystemPrompt: true })
           } else {
             resolve({ granted: false, skipped: true })
           }
@@ -133,14 +133,8 @@ async function ensureLocationPermission() {
       errorMessage: '您已拒绝位置权限。请点击「去设置」或在手机 设置→微信→位置 中允许'
     }
   }
-  const result = await requestLocationPermission()
-  if (result.granted) return { ok: true }
-  return {
-    ok: false,
-    errorMessage: result.denied
-      ? '位置权限被拒绝，请在设置中开启'
-      : '需要位置权限才能自动识别城市'
-  }
+  // unknown 时直接进入 getLocation，由微信系统弹出正式授权框。
+  return { ok: true }
 }
 
 async function getDeviceLocation() {
@@ -229,16 +223,9 @@ export async function resolveCityDistrictByLocation({ force = false } = {}) {
     return { ...cached, fromCache: true, located: true, errorCode: 0, errorMessage: '' }
   }
 
-  const cachedFail = getCachedGeoFail()
-  if (cachedFail && !force) {
-    return {
-      city: '',
-      district: '',
-      located: false,
-      fromCache: false,
-      errorCode: cachedFail.errorCode,
-      errorMessage: cachedFail.errorMessage
-    }
+  const recentFail = getRecentGeoFail()
+  if (recentFail && !force) {
+    return recentFail
   }
 
   if (_inflightGeo && !force) {
@@ -265,7 +252,7 @@ export async function resolveCityDistrictByLocation({ force = false } = {}) {
       }
 
       cacheGeoFail(geo)
-      return {
+      const failed = {
         city: '',
         district: '',
         located: false,
@@ -273,10 +260,12 @@ export async function resolveCityDistrictByLocation({ force = false } = {}) {
         errorCode: geo.errorCode,
         errorMessage: geo.errorMessage || formatLocateError(geo.errorCode)
       }
+      return failed
     } catch (err) {
       const msg = err?.errMsg || err?.message || String(err)
       console.warn('[location] locate failed:', msg)
       const isAuth = err?.needOpenSetting || /auth|deny|authorize|permission|拒绝/i.test(msg)
+      // 权限类错误不写入失败缓存，避免误伤后续重试
       return {
         city: '',
         district: '',
@@ -320,15 +309,20 @@ function emitGeoCityReady(geo) {
  */
 export function prefetchLocationOnLaunch() {
   // #ifdef MP-WEIXIN
-  return promptLocationPermissionOnLaunch().then(async (perm) => {
+  if (_launchPrefetchPromise) {
+    return _launchPrefetchPromise
+  }
+  _launchPrefetchPromise = promptLocationPermissionOnLaunch().then(async (perm) => {
     console.log('[location] launch permission:', perm)
     if (!perm.granted) {
       return { city: '', district: '', located: false, permission: perm }
     }
+    clearGeoFailCache()
     const geo = await resolveCityDistrictByLocation({ force: false })
     console.log('[location] launch prefetch:', geo.city || '(failed)', geo.errorMessage || '')
     return geo
   })
+  return _launchPrefetchPromise
   // #endif
   // #ifndef MP-WEIXIN
   return Promise.resolve({ city: '', district: '', located: false })
@@ -336,23 +330,34 @@ export function prefetchLocationOnLaunch() {
 }
 
 /**
- * 再次进入小程序：已授权但尚无缓存时，静默补一次定位
- * （例如用户在系统设置里刚开启位置权限）
+ * 从后台回到前台时补定位（跳过冷启动那次 onShow，避免与 onLaunch 重复抢定位）
  */
 export function tryPrefetchLocationOnShow() {
   // #ifdef MP-WEIXIN
-  return (async () => {
-    if (getCachedGeo()?.city) {
-      return { ...getCachedGeo(), located: true, fromCache: true }
-    }
-    const status = await getLocationAuthStatus()
+  if (_isFirstAppShow) {
+    _isFirstAppShow = false
+    return Promise.resolve({ city: '', district: '', located: false, skipped: true })
+  }
+  if (getCachedGeo()?.city) {
+    const cached = getCachedGeo()
+    return Promise.resolve({ ...cached, located: true, fromCache: true })
+  }
+  if (_launchPrefetchPromise) {
+    return _launchPrefetchPromise.then((geo) => {
+      if (geo?.city) return geo
+      return resolveCityDistrictByLocation({ force: false })
+    })
+  }
+  return getLocationAuthStatus().then((status) => {
     if (status !== 'granted') {
       return { city: '', district: '', located: false }
     }
-    const geo = await resolveCityDistrictByLocation({ force: false })
-    console.log('[location] show prefetch:', geo.city || '(failed)', geo.errorMessage || '')
-    return geo
-  })()
+    clearGeoFailCache()
+    return resolveCityDistrictByLocation({ force: false }).then((geo) => {
+      console.log('[location] show prefetch:', geo.city || '(failed)', geo.errorMessage || '')
+      return geo
+    })
+  })
   // #endif
   // #ifndef MP-WEIXIN
   return Promise.resolve({ city: '', district: '', located: false })
@@ -360,7 +365,6 @@ export function tryPrefetchLocationOnShow() {
 }
 
 const GEO_CACHE_KEY = 'pet_health_geo_city'
-const GEO_FAIL_CACHE_KEY = 'pet_health_geo_fail'
 
 export function cacheGeo({ city, district }) {
   if (!city) return
@@ -388,30 +392,30 @@ export function getCachedGeo() {
 }
 
 function cacheGeoFail({ errorCode, errorMessage }) {
-  try {
-    uni.setStorageSync(GEO_FAIL_CACHE_KEY, {
-      key: TENCENT_MAP_KEY,
-      errorCode,
-      errorMessage,
-      ts: Date.now()
-    })
-  } catch (_) {}
+  _recentFailResult = {
+    city: '',
+    district: '',
+    located: false,
+    fromCache: false,
+    errorCode,
+    errorMessage
+  }
+  _recentFailUntil = Date.now() + GEO_FAIL_DEBOUNCE_MS
 }
 
-function getCachedGeoFail() {
-  try {
-    const raw = uni.getStorageSync(GEO_FAIL_CACHE_KEY)
-    if (!raw || raw.key !== TENCENT_MAP_KEY) return null
-    if (!raw.ts || Date.now() - raw.ts > GEO_FAIL_COOLDOWN_MS) return null
-    return raw
-  } catch (_) {
+function getRecentGeoFail() {
+  if (!_recentFailResult || Date.now() > _recentFailUntil) {
+    _recentFailResult = null
     return null
   }
+  return _recentFailResult
 }
 
 function clearGeoFailCache() {
+  _recentFailResult = null
+  _recentFailUntil = 0
   try {
-    uni.removeStorageSync(GEO_FAIL_CACHE_KEY)
+    uni.removeStorageSync('pet_health_geo_fail')
   } catch (_) {}
 }
 
@@ -419,6 +423,6 @@ function clearGeoFailCache() {
 export function clearGeoCache() {
   try {
     uni.removeStorageSync(GEO_CACHE_KEY)
-    uni.removeStorageSync(GEO_FAIL_CACHE_KEY)
   } catch (_) {}
+  clearGeoFailCache()
 }

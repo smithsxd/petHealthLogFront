@@ -12,57 +12,58 @@
       @scrolltolower="loadMore"
     >
     <view class="review-page__body" :style="bodyPaddingStyle">
-      <view v-if="locatedCity" class="loc-bar">
-        <view class="loc-hint">
-          <text>📍 定位：{{ locatedCity }}<text v-if="locatedDistrict"> · {{ locatedDistrict }}</text></text>
-          <text class="loc-hint__sub">已为您选中定位城市，可下方切换其他城市</text>
+      <view class="filter-panel">
+        <view class="loc-strip">
+          <text class="loc-strip__icon">📍</text>
+          <text class="loc-strip__text">
+            <text v-if="locatedCity">定位 {{ formatCityLabel(locatedCity) }}<text v-if="locatedDistrict"> · {{ locatedDistrict }}</text></text>
+            <text v-else>未定位 · 默认 {{ formatCityLabel(filterCity) }}</text>
+          </text>
+          <text class="loc-strip__hint">可切换</text>
         </view>
-      </view>
-      <view v-else class="loc-bar loc-bar--default">
-        <text class="loc-hint__sub">未定位，默认展示 {{ formatCityLabel(filterCity) }} 有数据的区县</text>
-      </view>
 
-      <view v-if="showCityFilter" class="filter-bar filter-bar--city">
-        <text class="filter-bar__label">城市</text>
-        <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-          <view
-            v-for="c in cityOptions"
-            :key="c.value"
-            class="filter-chip press-soft"
-            :class="{ active: filterCity === c.value }"
-            @click="onCityChange(c.value)"
-          >
-            {{ c.label }}
-          </view>
-        </scroll-view>
-      </view>
+        <view v-if="showCityFilter" class="filter-bar filter-bar--city">
+          <text class="filter-bar__label">城市</text>
+          <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
+            <view
+              v-for="c in cityOptions"
+              :key="c.value"
+              class="filter-chip press-soft"
+              :class="{ active: filterCity === c.value }"
+              @click="onCityChange(c.value)"
+            >
+              {{ c.label }}
+            </view>
+          </scroll-view>
+        </view>
 
-      <view v-if="showDistrictFilter" class="filter-bar">
-        <text class="filter-bar__label">区县</text>
-        <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-          <view
-            v-for="d in districtOptions"
-            :key="d.value"
-            class="filter-chip press-soft"
-            :class="{ active: currentDistrict === d.value }"
-            @click="onDistrictChange(d.value)"
-          >
-            {{ d.label }}
-          </view>
-        </scroll-view>
-      </view>
+        <view v-if="showDistrictFilter" class="filter-bar">
+          <text class="filter-bar__label">区县</text>
+          <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
+            <view
+              v-for="d in districtOptions"
+              :key="d.value"
+              class="filter-chip press-soft"
+              :class="{ active: currentDistrict === d.value }"
+              @click="onDistrictChange(d.value)"
+            >
+              {{ d.label }}
+            </view>
+          </scroll-view>
+        </view>
 
-      <view class="search-bar">
-        <text class="search-bar__icon">🔍</text>
-        <input
-          class="search-bar__input"
-          v-model="hospitalKeyword"
-          type="text"
-          placeholder="搜索医院名称"
-          confirm-type="search"
-          @confirm="onHospitalSearch"
-        />
-        <view v-if="hospitalKeyword" class="search-bar__clear press-soft" @click="clearHospitalSearch">×</view>
+        <view class="search-bar">
+          <text class="search-bar__icon">🔍</text>
+          <input
+            class="search-bar__input"
+            v-model="hospitalKeyword"
+            type="text"
+            placeholder="搜索医院名称"
+            confirm-type="search"
+            @confirm="onHospitalSearch"
+          />
+          <view v-if="hospitalKeyword" class="search-bar__clear press-soft" @click="clearHospitalSearch">×</view>
+        </view>
       </view>
 
       <view v-if="isAdmin" class="admin-bar">
@@ -74,7 +75,7 @@
       <view v-if="!loading && (allReviews.length || dbCount > 0)" class="list-meta">
         <text>库内 {{ dbCount || allReviews.length }} 条</text>
         <text v-if="dbCount > allReviews.length"> · 已加载 {{ allReviews.length }}</text>
-        <text v-if="showFilteredCount"> · 当前展示 {{ filteredList.length }}</text>
+        <text v-if="showFilteredCount"> · {{ currentScopeLabel }} {{ filteredList.length }}</text>
       </view>
 
       <view class="tab-bar">
@@ -173,17 +174,34 @@
         </view>
         <view v-else-if="hasMore" class="load-more">
           <view class="load-more__btn press-soft" @click="loadMore">
-            加载更多（已加载 {{ allReviews.length }} / 库内 {{ dbCount || '?' }}）
+            加载更多（{{ currentScopeLabel }} {{ filteredList.length }} 条 · 已加载全库 {{ allReviews.length }} / {{ dbCount || '?' }}）
           </view>
         </view>
         <view v-else-if="allReviews.length" class="load-more load-more--done">
-          <text>— 已全部加载 {{ allReviews.length }} 条 —</text>
+          <text>— 已全部加载 {{ currentScopeLabel }} {{ visibleDoneCount }} 条 —</text>
         </view>
       </view>
 
       <view class="footer-notice">
-        <text class="notice-text">免责声明：本板块内容均为宠友自发上传的真实就医消费凭证及主观评价，不代表平台立场。</text>
-        <text class="appeal-text">商户申诉：若认为相关评价不实，请将加盖公章的营业执照及反驳证据发送至官方邮箱：1361489750@qq.com，平台将在 3 个工作日内核实处理。</text>
+        <view class="notice-card">
+          <view class="notice-card__head">
+            <text class="notice-card__icon">📋</text>
+            <text class="notice-card__title">免责声明</text>
+          </view>
+          <text class="notice-card__body">
+            本板块内容均为宠友自发上传的真实就医消费凭证及主观评价，不代表平台立场。
+          </text>
+        </view>
+        <view class="notice-card notice-card--appeal">
+          <view class="notice-card__head">
+            <text class="notice-card__icon">✉️</text>
+            <text class="notice-card__title">商户申诉</text>
+          </view>
+          <text class="notice-card__body">
+            若认为相关评价不实，请将加盖公章的营业执照及反驳证据发送至官方邮箱，平台将在 3 个工作日内核实处理。
+          </text>
+          <text class="notice-card__email">1361489750@qq.com</text>
+        </view>
       </view>
     </view>
     </scroll-view>
@@ -337,6 +355,27 @@ const filteredList = computed(() =>
 
 const showFilteredCount = computed(
   () => filteredList.value.length !== allReviews.value.length || hasActiveFilter.value
+)
+
+const currentScopeLabel = computed(() => {
+  const parts = []
+  if (filterCity.value && filterCity.value !== '全部城市') {
+    parts.push(formatCityLabel(filterCity.value))
+  }
+  if (currentDistrict.value !== '全部区县') {
+    parts.push(currentDistrict.value)
+  }
+  if (currentListType.value !== 'all') {
+    parts.push(currentListType.value === 'red' ? '红榜' : '黑榜')
+  }
+  if (hospitalKeyword.value.trim()) {
+    parts.push(`搜索结果`)
+  }
+  return parts.length ? `${parts.join(' · ')}共` : '当前展示'
+})
+
+const visibleDoneCount = computed(() =>
+  showFilteredCount.value ? filteredList.value.length : allReviews.value.length
 )
 
 const hasActiveFilter = computed(() => {
@@ -740,14 +779,58 @@ onPullDownRefresh(async () => {
   z-index: 999;
 }
 
+.filter-panel {
+  width: 100%;
+  margin-bottom: 8rpx;
+  background: var(--bg-card);
+  border-bottom: 1rpx solid var(--border);
+}
+
+.loc-strip {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12rpx 24rpx;
+  background: rgba(255, 154, 102, 0.08);
+  border-bottom: 1rpx solid rgba(255, 154, 102, 0.15);
+}
+
+.loc-strip__icon {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.loc-strip__text {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--text-2);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-strip__hint {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: var(--text-4);
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  background: var(--bg-input);
+}
+
 .search-bar {
   display: flex;
   align-items: center;
-  margin: 8rpx 28rpx 12rpx;
-  padding: 0 24rpx;
-  height: 72rpx;
-  border-radius: 36rpx;
-  background: var(--bg-card, #fff);
+  margin: 0 24rpx 14rpx;
+  padding: 0 20rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+  background: var(--bg-input);
   border: 1rpx solid var(--border, #e8e8e8);
 }
 
@@ -759,9 +842,9 @@ onPullDownRefresh(async () => {
 
 .search-bar__input {
   flex: 1;
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: var(--text-1);
-  height: 72rpx;
+  height: 64rpx;
 }
 
 .search-bar__clear {
@@ -778,7 +861,11 @@ onPullDownRefresh(async () => {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  padding: 12rpx 28rpx 8rpx;
+  padding: 8rpx 24rpx 4rpx;
+}
+
+.filter-bar--city {
+  padding-top: 10rpx;
 }
 
 .filter-bar__label {
@@ -791,50 +878,6 @@ onPullDownRefresh(async () => {
 .filter-bar .filter-scroll {
   flex: 1;
   min-width: 0;
-}
-
-.loc-bar--default {
-  padding: 8rpx 28rpx;
-}
-
-.loc-bar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16rpx;
-  padding: 0 28rpx 8rpx;
-}
-
-.loc-hint {
-  flex: 1;
-  min-width: 0;
-  font-size: 22rpx;
-  color: var(--text-3);
-}
-
-.loc-toggle {
-  flex-shrink: 0;
-  padding: 8rpx 20rpx;
-  border-radius: 24rpx;
-  font-size: 22rpx;
-  color: var(--primary);
-  background: var(--primary-light, rgba(88, 193, 108, 0.12));
-  border: 1rpx solid var(--primary);
-  white-space: nowrap;
-}
-
-.loc-toggle.active {
-  color: var(--text-2);
-  background: var(--bg-card, #fff);
-  border-color: var(--border, #e8e8e8);
-}
-
-.loc-hint__sub {
-  display: block;
-  margin-top: 4rpx;
-  color: var(--text-4);
-  font-size: 20rpx;
-  line-height: 1.4;
 }
 
 .admin-bar {
@@ -1189,29 +1232,66 @@ onPullDownRefresh(async () => {
 }
 
 .footer-notice {
-  padding: 40rpx;
-  text-align: center;
-  background: rgba(20, 20, 25, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin: 12rpx 24rpx 0;
+  padding: 0 0 108rpx;
+  box-sizing: border-box;
 }
 
-.notice-text,
-.appeal-text {
+.notice-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14rpx 20rpx;
+  border-radius: 16rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  box-shadow: none;
+}
+
+.notice-card--appeal {
+  background: rgba(255, 154, 102, 0.06);
+  border-color: rgba(255, 154, 102, 0.2);
+}
+
+.notice-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 6rpx;
+}
+
+.notice-card__icon {
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.notice-card__title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.notice-card__body {
   display: block;
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.3);
-  line-height: 1.6;
-  margin-bottom: 10rpx;
+  color: var(--text-3);
+  line-height: 1.5;
+  text-align: left;
 }
 
-.theme-light {
-  .footer-notice {
-    background: rgba(245, 247, 250, 0.6);
-  }
-
-  .notice-text,
-  .appeal-text {
-    color: rgba(96, 98, 102, 0.45);
-  }
+.notice-card__email {
+  display: inline-block;
+  margin-top: 8rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  color: var(--primary);
+  background: var(--primary-light);
+  word-break: break-all;
 }
 
 /* 底部详情弹窗 */

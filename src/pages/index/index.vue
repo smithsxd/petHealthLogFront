@@ -59,7 +59,7 @@ const features = [
     iconClass: 'i1',
     title: '核心健康看板',
     desc: '驱虫倒计时 · 疫苗提醒 · 用药清单',
-    go: () => uni.reLaunch({ url: '/pages/home/index' })
+    go: () => uni.navigateTo({ url: '/pages/home/index' })
   },
   {
     key: 'weight',
@@ -67,7 +67,7 @@ const features = [
     iconClass: 'i2',
     title: '体重管理',
     desc: '每日打卡 · 趋势曲线 · 历史记录',
-    go: () => uni.reLaunch({ url: '/pages/weight/index' })
+    go: () => uni.navigateTo({ url: '/pages/weight/index' })
   },
   {
     key: 'medical',
@@ -75,7 +75,7 @@ const features = [
     iconClass: 'i3',
     title: '医嘱录入',
     desc: '动态药方 · 用药计划 · 一键添加',
-    go: () => uni.reLaunch({ url: '/pages/medical/index' })
+    go: () => uni.navigateTo({ url: '/pages/medical/index' })
   },
   {
     key: 'review',
@@ -83,7 +83,7 @@ const features = [
     iconClass: 'i5',
     title: '就医指南',
     desc: '宠友验单 · 本城红黑榜 · 真实评价',
-    go: () => uni.reLaunch({ url: '/pages/review/index' })
+    go: () => uni.navigateTo({ url: '/pages/review/index' })
   },
   {
     key: 'archive',
@@ -91,7 +91,7 @@ const features = [
     iconClass: 'i4',
     title: '宠物档案',
     desc: '头像上传 · 品种选择 · 生日记录',
-    go: () => uni.reLaunch({ url: '/pages/archive/index' })
+    go: () => uni.navigateTo({ url: '/pages/archive/index' })
   }
 ]
 

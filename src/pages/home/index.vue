@@ -3,12 +3,10 @@
     title="核心健康看板"
     show-back
     back-to-index
-    action-text="+ 添加"
     tab-current="home"
-    @nav-action="goAddPet"
   >
     <PetBar v-if="petBarPets.length" :pets="petBarPets" v-model="currentPetIndex" show-add @add="goAddPet" />
-    <EmptyState v-else icon="🐾" title="还没有宠物" desc="点击右上角或下方添加第一只毛孩子" />
+    <EmptyState v-else icon="🐾" title="还没有宠物" desc="点击下方 PetBar 添加第一只毛孩子" />
 
     <!-- 宠物光环卡片 -->
     <view class="pet-hero" v-if="currentPet">

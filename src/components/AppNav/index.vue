@@ -5,12 +5,15 @@
         <view v-if="showBack" class="app-nav__back press-soft" @click="onBack">
           <text class="app-nav__back-icon">‹</text>
         </view>
+        <view v-if="showBack && (showThemeToggle || actionText)" class="app-nav__left-actions">
+          <ThemeToggle v-if="showThemeToggle" class="app-nav__theme" />
+          <text v-if="actionText" class="app-nav__action press-soft" @click="$emit('action')">{{ actionText }}</text>
+        </view>
         <ThemeToggle v-else-if="showThemeToggle" />
       </view>
       <text class="app-nav__title">{{ title }}</text>
       <view class="app-nav__right">
-        <ThemeToggle v-if="showThemeToggle && showBack" class="app-nav__theme" />
-        <text v-if="actionText" class="app-nav__action press-soft" @click="$emit('action')">{{ actionText }}</text>
+        <text v-if="actionText && !showBack" class="app-nav__action press-soft" @click="$emit('action')">{{ actionText }}</text>
       </view>
     </view>
   </view>
@@ -47,6 +50,11 @@ onMounted(() => {
 function onBack() {
   emit('back')
   if (props.backToIndex) {
+    const pages = getCurrentPages()
+    if (pages.length > 1) {
+      uni.navigateBack()
+      return
+    }
     uni.reLaunch({ url: '/pages/index/index' })
     return
   }
@@ -70,27 +78,41 @@ function onBack() {
 }
 
 .app-nav__inner {
+  position: relative;
   display: flex;
   align-items: center;
   height: 88rpx;
-  padding: 0 24rpx;
+  padding: 0 24rpx 0 36rpx;
 }
 
 .app-nav__left,
 .app-nav__right {
-  width: 140rpx;
   flex-shrink: 0;
   display: flex;
   align-items: center;
 }
 
 .app-nav__left {
+  position: relative;
+  z-index: 2;
   justify-content: flex-start;
+  min-width: 280rpx;
+  max-width: 360rpx;
 }
 
 .app-nav__right {
+  position: relative;
+  z-index: 2;
   justify-content: flex-end;
   gap: 12rpx;
+  width: 140rpx;
+}
+
+.app-nav__left-actions {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-left: 20rpx;
 }
 
 .app-nav__theme {
@@ -118,11 +140,14 @@ function onBack() {
 }
 
 .app-nav__title {
-  flex: 1;
+  position: absolute;
+  left: 200rpx;
+  right: 160rpx;
   text-align: center;
   font-size: 34rpx;
   font-weight: 600;
   color: var(--text-1);
+  pointer-events: none;
 }
 
 .app-nav__action {
