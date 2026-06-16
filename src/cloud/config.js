@@ -17,7 +17,7 @@ export const CLOUD_ENV_ID = 'cloud1-d7g5qwrun8a445889'
  * 申请：https://lbs.qq.com/ → 小程序 → WebServiceAPI
  * 并在微信公众平台 → 开发设置 → 服务器域名 添加 https://apis.map.qq.com
  */
-export const TENCENT_MAP_KEY = 'E4PBZ-T4ALA-ACLKO-CFK7L-2BMXT-2NB4K'
+export const TENCENT_MAP_KEY = 'RUIBZ-4SULG-UK6QK-QGTWF-VBQY7-PDFOJ'
 
 // ---- 云初始化就绪锁 ----
 // 微信小程序 App.onLaunch 不会被框架 await，页面可能在 init 完成前就开始渲染。

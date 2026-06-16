@@ -7,6 +7,7 @@ import { cloudErrorToast, parseCloudError, formatDbPermissionHint } from '@/clou
 import { ADMIN_OPENID, REVIEW_PAGE_SIZE } from '@/utils/reviewConstants.js'
 import { filterReviews, normalizeReview, getReviewTimestamp, REVIEW_SORT_FIELD } from '@/utils/reviewFilter.js'
 import { cacheOpenId, getCachedOpenId } from '@/utils/openid.js'
+import { resolveCityDistrictByLocation } from '@/utils/location.js'
 
 export { ADMIN_OPENID, REVIEW_PAGE_SIZE }
 
@@ -436,7 +437,6 @@ export async function adminDeleteReview(reviewId, { verifiedAdmin = false } = {}
 }
 
 export async function resolveLocationCityDistrict(options = {}) {
-  const { resolveCityDistrictByLocation } = await import('@/utils/location.js')
   const geo = await resolveCityDistrictByLocation(options)
   return {
     city: geo.city || '',

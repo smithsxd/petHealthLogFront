@@ -16,7 +16,7 @@
           <text class="loc-sub loc-sub--fail" v-else-if="locFailed && locateErrorHint">{{ locateErrorHint }}</text>
           <text class="loc-sub" v-else-if="locFailed">已保留当前选择，不影响发布</text>
         </view>
-        <text class="loc-retry press-soft" @click="tryLocate(true)">重新定位</text>
+        <view class="loc-retry press-soft" @tap.stop="onRetryLocate">重新定位</view>
       </view>
       <view v-if="locFailed && needOpenSetting" class="loc-settings press-soft" @click="goOpenLocationSettings">
         去设置开启位置权限
@@ -295,6 +295,11 @@ function applyDefaultLocation() {
 
 const LOCATE_OVERALL_MS = 12000
 
+function onRetryLocate() {
+  console.log('[publish] retry locate clicked')
+  tryLocate(true)
+}
+
 async function tryLocate(forceRefresh = false) {
   locating.value = true
   locFailed.value = false
@@ -551,7 +556,7 @@ onLoad((options) => {
   font-size: 24rpx;
   color: var(--primary);
   flex-shrink: 0;
-  padding: 8rpx 0;
+  padding: 8rpx 12rpx;
 }
 
 .loc-settings {

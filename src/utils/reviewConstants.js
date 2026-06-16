@@ -90,7 +90,9 @@ export function formatLocateError(code, message = '') {
   if (c === 121) {
     return '逆地址解析配额为 0 或已用尽。请在腾讯位置服务控制台 → 配额管理 → 账户额度，为「逆地址解析」分配额度后重试'
   }
-  if (c === 110) return '地图 Key 未授权小程序，请检查腾讯位置服务 Key 是否绑定 AppID'
+  if (c === 110) {
+    return '地图 Key 来源未授权（status 110）。请在腾讯位置服务控制台检查：① 勾选 WebServiceAPI + 微信小程序；② AppID 填 wxb2072e45bc057cc9；③ 域名白名单留空，或填 servicewechat.com（不要填 apis.map.qq.com）'
+  }
   if (c === 190 || c === 311) return '地图 Key 无效，请检查 config.js 中的 TENCENT_MAP_KEY'
   if (c === 199) return '地图 Key 未开启 WebServiceAPI'
   if (message) return message

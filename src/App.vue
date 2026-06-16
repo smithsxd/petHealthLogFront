@@ -2,7 +2,7 @@
 import { CLOUD_ENV_ID, setCloudInited, ensureCloud } from '@/cloud/config.js'
 import { loadPets } from '@/store/pet.js'
 import { initTheme } from '@/store/theme.js'
-import { promptLocationPermissionOnLaunch } from '@/utils/location.js'
+import { prefetchLocationOnLaunch, tryPrefetchLocationOnShow } from '@/utils/location.js'
 
 export default {
   async onLaunch() {
@@ -21,8 +21,8 @@ export default {
         console.error('[cloud] 首次加载宠物失败', err)
       })
       // 首次打开小程序时主动询问位置权限（用于同城就医指南）
-      promptLocationPermissionOnLaunch().then((res) => {
-        console.log('[location] launch permission:', res)
+      prefetchLocationOnLaunch().catch((err) => {
+        console.warn('[location] launch prefetch failed:', err)
       })
     } catch (err) {
       console.error('[cloud] 初始化失败', err)
@@ -30,7 +30,13 @@ export default {
     }
     // #endif
   },
-  onShow() {},
+  onShow() {
+    // #ifdef MP-WEIXIN
+    tryPrefetchLocationOnShow().catch((err) => {
+      console.warn('[location] show prefetch failed:', err)
+    })
+    // #endif
+  },
   onHide() {}
 }
 </script>

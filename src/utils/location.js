@@ -10,6 +10,7 @@ import { formatLocateError } from '@/utils/reviewConstants.js'
 
 const LOCATE_TIMEOUT_MS = 10000
 const LOCATION_ASKED_KEY = 'pet_health_location_asked'
+const GEO_FAIL_COOLDOWN_MS = 15 * 60 * 1000
 
 let _inflightGeo = null
 
@@ -172,7 +173,7 @@ async function reverseGeocodeByTencent(latitude, longitude) {
   const location = `${latitude},${longitude}`
   const url =
     `https://apis.map.qq.com/ws/geocoder/v1/?location=${encodeURIComponent(location)}` +
-    `&key=${encodeURIComponent(TENCENT_MAP_KEY)}&get_poi=0`
+    `&key=${encodeURIComponent(TENCENT_MAP_KEY)}&get_poi=0&coord_type=5&output=json`
 
   let res
   try {
@@ -219,17 +220,34 @@ async function reverseGeocodeByTencent(latitude, longitude) {
  */
 export async function resolveCityDistrictByLocation({ force = false } = {}) {
   // #ifdef MP-WEIXIN
+  if (force) {
+    clearGeoFailCache()
+  }
+
   const cached = getCachedGeo()
   if (cached?.city && !force) {
     return { ...cached, fromCache: true, located: true, errorCode: 0, errorMessage: '' }
   }
 
-  if (_inflightGeo) {
+  const cachedFail = getCachedGeoFail()
+  if (cachedFail && !force) {
+    return {
+      city: '',
+      district: '',
+      located: false,
+      fromCache: false,
+      errorCode: cachedFail.errorCode,
+      errorMessage: cachedFail.errorMessage
+    }
+  }
+
+  if (_inflightGeo && !force) {
     return _inflightGeo
   }
 
-  _inflightGeo = (async () => {
+  const run = (async () => {
     try {
+      console.log('[location] start locate, force=', force)
       const loc = await getDeviceLocation()
       console.log('[location] got coords:', loc.latitude, loc.longitude)
 
@@ -239,10 +257,14 @@ export async function resolveCityDistrictByLocation({ force = false } = {}) {
 
       const geo = await reverseGeocodeByTencent(loc.latitude, loc.longitude)
       if (geo.city) {
+        clearGeoFailCache()
         cacheGeo(geo)
-        return { ...geo, located: true, fromCache: false }
+        const result = { ...geo, located: true, fromCache: false }
+        emitGeoCityReady(result)
+        return result
       }
 
+      cacheGeoFail(geo)
       return {
         city: '',
         district: '',
@@ -267,18 +289,78 @@ export async function resolveCityDistrictByLocation({ force = false } = {}) {
         needOpenSetting: !!err?.needOpenSetting
       }
     } finally {
-      _inflightGeo = null
+      if (_inflightGeo === run) {
+        _inflightGeo = null
+      }
     }
   })()
 
-  return _inflightGeo
+  _inflightGeo = run
+  return run
   // #endif
   // #ifndef MP-WEIXIN
   return { city: '', district: '', located: false, errorCode: 0, errorMessage: '' }
   // #endif
 }
 
+/** 定位成功后通知各页面更新城市筛选（如就医指南） */
+function emitGeoCityReady(geo) {
+  if (!geo?.city) return
+  try {
+    uni.$emit('geo-city-ready', {
+      city: normalizeCityName(geo.city),
+      district: normalizeDistrictName(geo.district || '')
+    })
+  } catch (_) {}
+}
+
+/**
+ * 小程序启动：询问位置权限，用户允许后立即预定位并缓存城市
+ * 供就医指南等页面进入时直接使用，无需等到发布页再定位
+ */
+export function prefetchLocationOnLaunch() {
+  // #ifdef MP-WEIXIN
+  return promptLocationPermissionOnLaunch().then(async (perm) => {
+    console.log('[location] launch permission:', perm)
+    if (!perm.granted) {
+      return { city: '', district: '', located: false, permission: perm }
+    }
+    const geo = await resolveCityDistrictByLocation({ force: false })
+    console.log('[location] launch prefetch:', geo.city || '(failed)', geo.errorMessage || '')
+    return geo
+  })
+  // #endif
+  // #ifndef MP-WEIXIN
+  return Promise.resolve({ city: '', district: '', located: false })
+  // #endif
+}
+
+/**
+ * 再次进入小程序：已授权但尚无缓存时，静默补一次定位
+ * （例如用户在系统设置里刚开启位置权限）
+ */
+export function tryPrefetchLocationOnShow() {
+  // #ifdef MP-WEIXIN
+  return (async () => {
+    if (getCachedGeo()?.city) {
+      return { ...getCachedGeo(), located: true, fromCache: true }
+    }
+    const status = await getLocationAuthStatus()
+    if (status !== 'granted') {
+      return { city: '', district: '', located: false }
+    }
+    const geo = await resolveCityDistrictByLocation({ force: false })
+    console.log('[location] show prefetch:', geo.city || '(failed)', geo.errorMessage || '')
+    return geo
+  })()
+  // #endif
+  // #ifndef MP-WEIXIN
+  return Promise.resolve({ city: '', district: '', located: false })
+  // #endif
+}
+
 const GEO_CACHE_KEY = 'pet_health_geo_city'
+const GEO_FAIL_CACHE_KEY = 'pet_health_geo_fail'
 
 export function cacheGeo({ city, district }) {
   if (!city) return
@@ -305,9 +387,38 @@ export function getCachedGeo() {
   }
 }
 
+function cacheGeoFail({ errorCode, errorMessage }) {
+  try {
+    uni.setStorageSync(GEO_FAIL_CACHE_KEY, {
+      key: TENCENT_MAP_KEY,
+      errorCode,
+      errorMessage,
+      ts: Date.now()
+    })
+  } catch (_) {}
+}
+
+function getCachedGeoFail() {
+  try {
+    const raw = uni.getStorageSync(GEO_FAIL_CACHE_KEY)
+    if (!raw || raw.key !== TENCENT_MAP_KEY) return null
+    if (!raw.ts || Date.now() - raw.ts > GEO_FAIL_COOLDOWN_MS) return null
+    return raw
+  } catch (_) {
+    return null
+  }
+}
+
+function clearGeoFailCache() {
+  try {
+    uni.removeStorageSync(GEO_FAIL_CACHE_KEY)
+  } catch (_) {}
+}
+
 /** 清除定位缓存（调试用） */
 export function clearGeoCache() {
   try {
     uni.removeStorageSync(GEO_CACHE_KEY)
+    uni.removeStorageSync(GEO_FAIL_CACHE_KEY)
   } catch (_) {}
 }

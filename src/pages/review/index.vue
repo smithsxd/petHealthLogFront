@@ -273,6 +273,7 @@ import {
   getDistrictOptionsForReviews,
   getCityOptionsForReviews
 } from '@/utils/reviewFilter.js'
+import { getCachedGeo } from '@/utils/location.js'
 
 const loading = ref(true)
 const allReviews = ref([])
@@ -447,23 +448,37 @@ function calcBodyPaddingStyle() {
 async function initLocation({ force = false } = {}) {
   try {
     const geo = await resolveLocationCityDistrict({ force })
-    if (geo.city) {
-      locatedCity.value = geo.city
-      locatedDistrict.value = geo.district || ''
-      filterCity.value = geo.city
-    } else {
-      locatedCity.value = ''
-      locatedDistrict.value = ''
-      if (!locatedCity.value) {
-        filterCity.value = DEFAULT_CITY
-      }
-    }
+    applyLocatedGeo(geo)
   } catch (err) {
     console.warn('[review] initLocation failed:', err)
     locatedCity.value = ''
     locatedDistrict.value = ''
     filterCity.value = DEFAULT_CITY
   }
+}
+
+function applyLocatedGeo(geo) {
+  if (geo?.city) {
+    locatedCity.value = geo.city
+    locatedDistrict.value = geo.district || ''
+    filterCity.value = geo.city
+    return
+  }
+  locatedCity.value = ''
+  locatedDistrict.value = ''
+  filterCity.value = DEFAULT_CITY
+}
+
+function applyCachedLocationIfAny() {
+  const cached = getCachedGeo()
+  if (cached?.city) {
+    applyLocatedGeo({ city: cached.city, district: cached.district })
+  }
+}
+
+function onGeoCityReady(payload) {
+  if (!payload?.city) return
+  applyLocatedGeo(payload)
 }
 
 function startLocationUpdate() {
@@ -629,6 +644,7 @@ async function onAdminDelete(item) {
 }
 
 onShow(async () => {
+  applyCachedLocationIfAny()
   // 定位与拉列表并行，避免 getLocation / 逆地理阻塞数据加载
   startLocationUpdate()
   if (Date.now() - lastPublishedAt.value < 2500) {
@@ -676,11 +692,13 @@ async function onReviewUpdated(payload) {
 onMounted(() => {
   uni.$on('review-published', onReviewPublished)
   uni.$on('review-updated', onReviewUpdated)
+  uni.$on('geo-city-ready', onGeoCityReady)
 })
 
 onUnmounted(() => {
   uni.$off('review-published', onReviewPublished)
   uni.$off('review-updated', onReviewUpdated)
+  uni.$off('geo-city-ready', onGeoCityReady)
 })
 
 onPullDownRefresh(async () => {

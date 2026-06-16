@@ -1,8 +1,7 @@
 {
   "description": "uni-app 编译产物 — 云环境 cloud1-d7g5qwrun8a445889",
   "packOptions": {
-    "ignore": [],
-    "include": []
+    "ignore": []
   },
   "setting": {
     "urlCheck": false,
@@ -10,26 +9,7 @@
     "postcss": false,
     "minified": true,
     "newFeature": true,
-    "bigPackageSizeSupport": true,
-    "compileWorklet": false,
-    "uglifyFileName": false,
-    "uploadWithSourceMap": true,
-    "enhance": false,
-    "packNpmManually": false,
-    "packNpmRelationList": [],
-    "minifyWXSS": true,
-    "minifyWXML": true,
-    "localPlugins": false,
-    "disableUseStrict": false,
-    "useCompilerPlugins": false,
-    "condition": false,
-    "swc": false,
-    "disableSWC": true,
-    "babelSetting": {
-      "ignore": [],
-      "disablePlugins": [],
-      "outputPath": ""
-    }
+    "bigPackageSizeSupport": true
   },
   "compileType": "miniprogram",
   "appid": "wxb2072e45bc057cc9",
@@ -51,8 +31,5 @@
       "current": -1,
       "list": []
     }
-  },
-  "libVersion": "3.15.2",
-  "simulatorPluginLibVersion": {},
-  "editorSetting": {}
+  }
 }
