@@ -1,5 +1,5 @@
 <script>
-import { CLOUD_ENV_ID, setCloudInited } from '@/cloud/config.js'
+import { CLOUD_ENV_ID, setCloudInited, ensureCloud } from '@/cloud/config.js'
 import { loadPets } from '@/store/pet.js'
 import { initTheme } from '@/store/theme.js'
 
@@ -13,10 +13,7 @@ export default {
         setCloudInited(new Error('wx.cloud 不可用'))
         return
       }
-      wx.cloud.init({
-        env: CLOUD_ENV_ID,
-        traceUser: true
-      })
+      ensureCloud()
       setCloudInited()
       console.log('[cloud] 初始化完成，环境:', CLOUD_ENV_ID)
       loadPets().catch((err) => {

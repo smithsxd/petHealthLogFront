@@ -34,6 +34,20 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "宠物档案"
       }
+    },
+    {
+      "path": "pages/review/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "就医指南"
+      }
+    },
+    {
+      "path": "pages/review/publish",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "发布评价"
+      }
     }
   ],
   "subPackages": [

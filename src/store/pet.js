@@ -2,6 +2,7 @@ import { reactive, computed } from 'vue'
 import { COLLECTIONS, getDb } from '@/cloud/db.js'
 import { cloudGet, sortBy } from '@/cloud/query.js'
 import { cloudErrorToast } from '@/cloud/errors.js'
+import { cacheOpenId } from '@/utils/openid.js'
 import {
   petEmoji,
   typeLabel,
@@ -72,6 +73,9 @@ export async function loadPets(options = {}) {
         { label: 'pets', sort: sortBy('create_time', 'desc') }
       )
       petStore.pets = pets
+      if (pets.length && pets[0]._openid) {
+        cacheOpenId(pets[0]._openid)
+      }
       if (!petStore.currentPetId && petStore.pets.length) {
         petStore.currentPetId = petStore.pets[0]._id
       } else if (petStore.currentPetId && !petStore.pets.find((p) => p._id === petStore.currentPetId)) {

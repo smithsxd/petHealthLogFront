@@ -38,7 +38,13 @@
       "es6": true
     },
     "lazyCodeLoading": "requiredComponents",
-    "usingComponents": true
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "用于自动定位您所在城市，展示同城红黑榜"
+      }
+    },
+    "requiredPrivateInfos": ["getLocation"]
   },
   "uniStatistics": {
     "enable": false

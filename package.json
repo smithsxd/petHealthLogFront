@@ -4,9 +4,9 @@
   "private": true,
   "description": "宠物健康日志小程序 — uni-app + UView Plus",
   "scripts": {
-    "dev:mp-weixin": "uni -p mp-weixin",
-    "dev:h5": "uni",
-    "build:mp-weixin": "node scripts/clean-mp-build.mjs && uni build -p mp-weixin",
+    "build:mp-weixin": "node scripts/clean-mp-build.mjs && uni build -p mp-weixin && node scripts/sync-dev-from-build.mjs && node scripts/sync-mp-project-config.mjs",
+    "dev:mp-weixin": "node scripts/sync-mp-project-config.mjs && uni -p mp-weixin",
+    "sync:mp-config": "node scripts/sync-mp-project-config.mjs",
     "build:h5": "uni build"
   },
   "dependencies": {

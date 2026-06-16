@@ -20,7 +20,23 @@ export function parseCloudError(err) {
 
   const retriable = timeout && !authExpired
 
-  return { msg, code, authExpired, envMissing, timeout, retriable }
+  const permissionDenied =
+    /permission denied|can not remove|cannot remove|无权|无权限|not authorized/i.test(msg)
+
+  return { msg, code, authExpired, envMissing, timeout, retriable, permissionDenied }
+}
+
+/** 将云数据库权限错误转为可操作提示 */
+export function formatDbPermissionHint(err) {
+  const info = parseCloudError(err)
+  if (info.permissionDenied || /can not remove|cannot create|permission/i.test(info.msg)) {
+    return (
+      'hospital_reviews 写入被拒（create 权限）。请到云开发控制台改权限：' +
+      '{"read":true,"create":true,"update":"doc._openid==auth.openid","delete":"doc._openid==auth.openid||auth.openid==\'你的OpenID\'"}' +
+      '；前端当前只走直连数据库，不走云函数'
+    )
+  }
+  return info.msg
 }
 
 export function cloudErrorToast(err, fallback = '操作失败') {

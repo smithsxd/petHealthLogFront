@@ -11,6 +11,14 @@
  */
 export const CLOUD_ENV_ID = 'cloud1-d7g5qwrun8a445889'
 
+/**
+ * 腾讯位置服务 Key（可选）
+ * 配置后可通过定位自动解析城市 / 区县。
+ * 申请：https://lbs.qq.com/ → 小程序 → WebServiceAPI
+ * 并在微信公众平台 → 开发设置 → 服务器域名 添加 https://apis.map.qq.com
+ */
+export const TENCENT_MAP_KEY = 'E4PBZ-T4ALA-ACLKO-CFK7L-2BMXT-2NB4K'
+
 // ---- 云初始化就绪锁 ----
 // 微信小程序 App.onLaunch 不会被框架 await，页面可能在 init 完成前就开始渲染。
 // 这里用 Promise 让所有数据库操作排队，等 init 完成后再放行。
@@ -52,4 +60,26 @@ export function setCloudInited(error) {
 
 export function isCloudFailed() {
   return _cloudRejected
+}
+
+/** 统一云初始化（幂等），所有云 API 调用前应执行 */
+export function ensureCloud() {
+  // #ifdef MP-WEIXIN
+  if (!wx.cloud) {
+    throw new Error('wx.cloud 不可用，请确认已开通云开发且 AppID 正确')
+  }
+  wx.cloud.init({ env: CLOUD_ENV_ID, traceUser: true })
+  return CLOUD_ENV_ID
+  // #endif
+  // #ifndef MP-WEIXIN
+  throw new Error('云开发仅支持微信小程序')
+  // #endif
+}
+
+/** cloud:// fileID 是否属于当前配置的云环境 */
+export function isCloudFileForCurrentEnv(fileId) {
+  if (!fileId || typeof fileId !== 'string') return false
+  if (!fileId.startsWith('cloud://')) return false
+  const envKey = CLOUD_ENV_ID.replace(/^cloud1-/, '')
+  return fileId.includes(CLOUD_ENV_ID) || (envKey && fileId.includes(envKey))
 }

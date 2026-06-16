@@ -1,0 +1,9 @@
+{
+  "name": "adminDeleteReview",
+  "version": "1.0.0",
+  "description": "管理员删除红黑榜评价",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -41,7 +41,8 @@ const tabs = [
   { key: 'home', path: '/pages/home/index', text: '看板', icon: 'home', iconActive: 'home-fill' },
   { key: 'weight', path: '/pages/weight/index', text: '体重', icon: 'grid', iconActive: 'grid-fill' },
   { key: 'medical', path: '/pages/medical/index', text: '医嘱', icon: 'file-text', iconActive: 'file-text-fill' },
-  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' }
+  { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' },
+  { key: 'review', path: '/pages/review/index', text: '指南', icon: 'bookmark', iconActive: 'bookmark-fill' }
 ]
 
 function switchTab(path) {
@@ -79,9 +80,10 @@ function switchTab(path) {
   justify-content: center;
   height: 100rpx;
   color: var(--text-3);
-  font-size: 20rpx;
-  gap: 4rpx;
+  font-size: 18rpx;
+  gap: 2rpx;
   position: relative;
+  min-width: 0;
 
   &.active {
     color: var(--primary);
@@ -109,7 +111,7 @@ function switchTab(path) {
 }
 
 .app-tabbar__text {
-  font-size: 20rpx;
+  font-size: 18rpx;
   line-height: 1.2;
   transition: color 0.25s ease;
 }
