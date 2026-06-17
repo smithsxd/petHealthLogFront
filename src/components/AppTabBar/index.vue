@@ -41,7 +41,7 @@ const tabs = [
   { key: 'home', path: '/pages/home/index', text: '看板', icon: 'home', iconActive: 'home-fill' },
   { key: 'weight', path: '/pages/weight/index', text: '体重', icon: 'grid', iconActive: 'grid-fill' },
   { key: 'medical', path: '/pages/medical/index', text: '医嘱', icon: 'file-text', iconActive: 'file-text-fill' },
-  { key: 'review', path: '/pages/review/index', text: '指南', icon: 'bookmark', iconActive: 'bookmark-fill' },
+  // { key: 'review', path: '/pages/review/index', text: '指南', icon: 'bookmark', iconActive: 'bookmark-fill' },
   { key: 'archive', path: '/pages/archive/index', text: '档案', icon: 'account', iconActive: 'account-fill' }
 ]
 

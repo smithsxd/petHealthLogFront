@@ -24,7 +24,7 @@
           <view class="fc-icon" :class="item.iconClass">{{ item.icon }}</view>
           <view class="fc-info">
             <text class="fc-title">{{ item.title }}</text>
-            <text class="fc-desc">{{ item.key === 'review' ? reviewDesc : item.desc }}</text>
+            <text class="fc-desc">{{ item.desc }}</text>
           </view>
           <text class="fc-arrow">›</text>
         </view>
@@ -38,19 +38,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
 import AppNav from '@/components/AppNav/index.vue'
 import { themeClass } from '@/store/theme.js'
-import { countVerifiedReviews } from '@/cloud/review.js'
+// import { ref, computed } from 'vue'
+// import { onShow } from '@dcloudio/uni-app'
+// import { countVerifiedReviews } from '@/cloud/review.js'
 
-const verifiedCount = ref(0)
+// const verifiedCount = ref(0)
 
-const reviewDesc = computed(() =>
-  verifiedCount.value > 0
-    ? `已有 ${verifiedCount.value} 位宠友真实验单 · 本城红黑榜一键查`
-    : '宠友验单 · 本城红黑榜 · 真实评价'
-)
+// const reviewDesc = computed(() =>
+//   verifiedCount.value > 0
+//     ? `已有 ${verifiedCount.value} 位宠友真实验单 · 本城红黑榜一键查`
+//     : '宠友验单 · 本城红黑榜 · 真实评价'
+// )
 
 const features = [
   {
@@ -77,14 +77,14 @@ const features = [
     desc: '动态药方 · 用药计划 · 一键添加',
     go: () => uni.navigateTo({ url: '/pages/medical/index' })
   },
-  {
-    key: 'review',
-    icon: '🧾',
-    iconClass: 'i5',
-    title: '就医指南',
-    desc: '宠友验单 · 本城红黑榜 · 真实评价',
-    go: () => uni.navigateTo({ url: '/pages/review/index' })
-  },
+  // {
+  //   key: 'review',
+  //   icon: '🧾',
+  //   iconClass: 'i5',
+  //   title: '就医指南',
+  //   desc: '宠友验单 · 本城红黑榜 · 真实评价',
+  //   go: () => uni.navigateTo({ url: '/pages/review/index' })
+  // },
   {
     key: 'archive',
     icon: '📝',
@@ -95,17 +95,17 @@ const features = [
   }
 ]
 
-async function refreshVerifiedCount() {
-  try {
-    verifiedCount.value = await countVerifiedReviews()
-  } catch (_) {
-    verifiedCount.value = 0
-  }
-}
+// async function refreshVerifiedCount() {
+//   try {
+//     verifiedCount.value = await countVerifiedReviews()
+//   } catch (_) {
+//     verifiedCount.value = 0
+//   }
+// }
 
-onShow(() => {
-  refreshVerifiedCount()
-})
+// onShow(() => {
+//   refreshVerifiedCount()
+// })
 </script>
 
 <style lang="scss" scoped>
